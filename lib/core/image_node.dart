@@ -1,6 +1,6 @@
-import 'package:canvas_text_editor/core/block_kind.dart';
-import 'package:canvas_text_editor/core/block_node.dart';
-import 'package:canvas_text_editor/core/table_attributes.dart';
+import 'package:dart_text_editor/core/block_kind.dart';
+import 'package:dart_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/table_attributes.dart';
 
 class ImageNode extends BlockNode {
   final String imageUrl;
@@ -20,7 +20,8 @@ class ImageNode extends BlockNode {
   BlockKind get kind => BlockKind.image;
 
   @override
-  int get length => 1; // Image nodes typically have a length of 1 for cursor movement
+  int get length =>
+      1; // Image nodes typically have a length of 1 for cursor movement
 
   @override
   Map<String, dynamic> getAttributes() {

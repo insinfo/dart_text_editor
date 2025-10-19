@@ -1,13 +1,13 @@
-import 'package:canvas_text_editor/core/document_model.dart';
-import 'package:canvas_text_editor/core/paragraph_node.dart';
-import 'package:canvas_text_editor/core/selection.dart';
-import 'package:canvas_text_editor/core/position.dart';
-import 'package:canvas_text_editor/core/inline_attributes.dart';
-import 'package:canvas_text_editor/core/text_run.dart';
-import 'package:canvas_text_editor/editor.dart';
-import 'package:canvas_text_editor/layout/paginator.dart';
-import 'package:canvas_text_editor/layout/page_constraints.dart';
-import 'package:canvas_text_editor/render/measure_cache.dart';
+import 'package:dart_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
+import 'package:dart_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/core/text_run.dart';
+import 'package:dart_text_editor/editor.dart';
+import 'package:dart_text_editor/layout/paginator.dart';
+import 'package:dart_text_editor/layout/page_constraints.dart';
+import 'package:dart_text_editor/render/measure_cache.dart';
 import 'package:test/test.dart';
 import 'mocks/mock_text_measurer.dart';
 import 'mocks/manual_dom_api_mocks.dart';
@@ -40,7 +40,8 @@ void main() {
       paginator.paginate(document, PageConstraints.a4());
     });
 
-    test('click in the middle of a span sets collapsed selection correctly', () async {
+    test('click in the middle of a span sets collapsed selection correctly',
+        () async {
       final editor = Editor(
         mockCanvas,
         document,
@@ -58,14 +59,17 @@ void main() {
       final clickY = (rect.top + localY).toInt();
 
       // CORREÇÃO: Usar o método trigger
-      mockOverlay.triggerMouseDown(MockMouseEventApi(clientX: clickX, clientY: clickY));
+      mockOverlay.triggerMouseDown(
+          MockMouseEventApi(clientX: clickX, clientY: clickY));
       await Future.microtask(() {});
 
-      final expectedPosition = editor.paginator.getPositionFromScreen(localX, localY);
+      final expectedPosition =
+          editor.paginator.getPositionFromScreen(localX, localY);
       expect(editor.state.selection, Selection.collapsed(expectedPosition!));
     });
 
-    test('typing a character inserts into the document when overlay is focused', () async {
+    test('typing a character inserts into the document when overlay is focused',
+        () async {
       final editor = Editor(
         mockCanvas,
         document,
@@ -81,7 +85,8 @@ void main() {
       mockOverlay.triggerKeyDown(MockEventApi(key: 'a'));
       await Future.microtask(() {});
 
-      expect((editor.state.document.nodes[0] as ParagraphNode).text, 'aHello world');
+      expect((editor.state.document.nodes[0] as ParagraphNode).text,
+          'aHello world');
     });
 
     test('pressing Enter splits paragraph and moves caret', () async {
@@ -95,7 +100,8 @@ void main() {
         measureCache: measureCache,
       );
 
-      editor.state = editor.state.copyWith(selection: Selection.collapsed(const Position(0, 5)));
+      editor.state = editor.state
+          .copyWith(selection: Selection.collapsed(const Position(0, 5)));
       mockOverlay.focus();
       // CORREÇÃO: Usar o método trigger
       mockOverlay.triggerKeyDown(MockEventApi(key: 'Enter'));

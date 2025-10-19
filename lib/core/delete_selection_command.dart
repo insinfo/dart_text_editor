@@ -1,8 +1,8 @@
-import 'package:canvas_text_editor/core/delta.dart';
-import 'package:canvas_text_editor/core/editor_command.dart';
-import 'package:canvas_text_editor/core/editor_state.dart';
-import 'package:canvas_text_editor/core/selection.dart';
-import 'package:canvas_text_editor/core/transaction.dart';
+import 'package:dart_text_editor/core/delta.dart';
+import 'package:dart_text_editor/core/editor_command.dart';
+import 'package:dart_text_editor/core/editor_state.dart';
+import 'package:dart_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/transaction.dart';
 
 class DeleteSelectionCommand implements EditorCommand {
   @override
@@ -10,7 +10,7 @@ class DeleteSelectionCommand implements EditorCommand {
     final selection = state.selection;
 
     if (selection.isCollapsed) {
-  return Transaction.compat(Delta(), selection, selection);
+      return Transaction.compat(Delta(), selection, selection);
     }
 
     final startOffset = state.document.getOffset(selection.start);
@@ -22,6 +22,6 @@ class DeleteSelectionCommand implements EditorCommand {
     delta.delete(lengthToDelete);
 
     final newSelection = Selection.collapsed(selection.start);
-  return Transaction.compat(delta, selection, newSelection);
+    return Transaction.compat(delta, selection, newSelection);
   }
 }

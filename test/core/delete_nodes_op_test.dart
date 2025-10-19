@@ -1,9 +1,9 @@
-import 'package:canvas_text_editor/core/delete_nodes_op.dart';
-import 'package:canvas_text_editor/core/document_model.dart';
-import 'package:canvas_text_editor/core/editor_state.dart';
-import 'package:canvas_text_editor/core/paragraph_node.dart';
-import 'package:canvas_text_editor/core/selection.dart';
-import 'package:canvas_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/delete_nodes_op.dart';
+import 'package:dart_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/editor_state.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
+import 'package:dart_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/position.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -1,7 +1,7 @@
-import 'package:canvas_text_editor/core/block_kind.dart';
-import 'package:canvas_text_editor/core/block_node.dart';
-import 'package:canvas_text_editor/core/table_row_node.dart';
-import 'package:canvas_text_editor/core/table_attributes.dart';
+import 'package:dart_text_editor/core/block_kind.dart';
+import 'package:dart_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/table_row_node.dart';
+import 'package:dart_text_editor/core/table_attributes.dart';
 
 class TableNode extends BlockNode {
   final List<TableRowNode> rows;

@@ -1,7 +1,7 @@
-import 'package:canvas_text_editor/core/block_kind.dart';
-import 'package:canvas_text_editor/core/block_node.dart';
-import 'package:canvas_text_editor/core/document_model.dart';
-import 'package:canvas_text_editor/core/list_attributes.dart';
+import 'package:dart_text_editor/core/block_kind.dart';
+import 'package:dart_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/list_attributes.dart';
 
 class ListItemNode extends BlockNode {
   final DocumentModel content;
@@ -18,7 +18,8 @@ class ListItemNode extends BlockNode {
   BlockKind get kind => BlockKind.listItem;
 
   @override
-  int get length => content.length; // The length of the list item is the length of its content
+  int get length => content
+      .length; // The length of the list item is the length of its content
 
   @override
   Map<String, dynamic> getAttributes() {

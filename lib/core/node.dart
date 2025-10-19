@@ -1,5 +1,3 @@
-
-
 abstract class Node {
   final String nodeId;
   final String? parentId;

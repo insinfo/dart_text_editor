@@ -1,5 +1,4 @@
-
-import 'package:canvas_text_editor/layout/layout_line.dart';
+import 'package:dart_text_editor/layout/layout_line.dart';
 
 class ParagraphLayoutResult {
   final List<LayoutLine> lines;

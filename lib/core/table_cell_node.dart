@@ -1,7 +1,7 @@
-import 'package:canvas_text_editor/core/block_kind.dart';
-import 'package:canvas_text_editor/core/block_node.dart';
-import 'package:canvas_text_editor/core/document_model.dart';
-import 'package:canvas_text_editor/core/table_attributes.dart';
+import 'package:dart_text_editor/core/block_kind.dart';
+import 'package:dart_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/table_attributes.dart';
 
 class TableCellNode extends BlockNode {
   final DocumentModel content;
@@ -17,7 +17,8 @@ class TableCellNode extends BlockNode {
   BlockKind get kind => BlockKind.tableCell;
 
   @override
-  int get length => content.length; // The length of the cell is the length of its content
+  int get length =>
+      content.length; // The length of the cell is the length of its content
 
   @override
   Map<String, dynamic> getAttributes() {

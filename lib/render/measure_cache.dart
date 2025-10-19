@@ -25,7 +25,8 @@ class MeasureCache {
 
   String _fontString(InlineAttributes attributes) {
     final fontSize = attributes.fontSize ?? 16; // Default font size
-    final fontFamily = attributes.fontFamily; // Default font family is handled in InlineAttributes
+    final fontFamily = attributes
+        .fontFamily; // Default font family is handled in InlineAttributes
     return '${attributes.italic ? 'italic' : 'normal'} ${attributes.bold ? 'bold' : 'normal'} ${fontSize}px $fontFamily';
   }
 }

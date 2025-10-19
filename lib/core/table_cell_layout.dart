@@ -1,4 +1,3 @@
-
 class TableCellLayout {
   final double width;
   final double height;

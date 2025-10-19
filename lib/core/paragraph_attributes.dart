@@ -1,5 +1,4 @@
-
-import 'package:canvas_text_editor/util/web_ui.dart';
+import 'package:dart_text_editor/util/web_ui.dart';
 
 class ParagraphAttributes {
   final TextAlign align;

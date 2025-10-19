@@ -1,10 +1,10 @@
 // Arquivo: lib/core/insert_text_command.dart (CORRIGIDO)
-import 'package:canvas_text_editor/core/delta.dart';
-import 'package:canvas_text_editor/core/editor_command.dart';
-import 'package:canvas_text_editor/core/editor_state.dart';
-import 'package:canvas_text_editor/core/transaction.dart';
-import 'package:canvas_text_editor/core/position.dart';
-import 'package:canvas_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/delta.dart';
+import 'package:dart_text_editor/core/editor_command.dart';
+import 'package:dart_text_editor/core/editor_state.dart';
+import 'package:dart_text_editor/core/transaction.dart';
+import 'package:dart_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/selection.dart';
 
 class InsertTextCommand implements EditorCommand {
   final String text;

@@ -1,8 +1,8 @@
 // Arquivo: lib/render/text_measurer.dart (CORRIGIDO)
-import 'package:canvas_text_editor/core/inline_attributes.dart';
-import 'package:canvas_text_editor/render/metrics.dart';
-import 'package:canvas_text_editor/render/text_measurer_interface.dart';
-import 'package:canvas_text_editor/util/dom_api.dart';
+import 'package:dart_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/render/metrics.dart';
+import 'package:dart_text_editor/render/text_measurer_interface.dart';
+import 'package:dart_text_editor/util/dom_api.dart';
 
 class TextMeasurer implements TextMeasurerInterface {
   final CanvasRenderingContext2DApi _ctx;

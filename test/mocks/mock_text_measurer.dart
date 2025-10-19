@@ -1,12 +1,19 @@
-import 'package:canvas_text_editor/core/inline_attributes.dart';
-import 'package:canvas_text_editor/render/metrics.dart';
-import 'package:canvas_text_editor/render/text_measurer_interface.dart';
+// Arquivo: test/mocks/mock_text_measurer.dart (COMPLETO E CORRIGIDO)
+import 'package:dart_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/render/metrics.dart';
+import 'package:dart_text_editor/render/text_measurer_interface.dart';
 
 class MockTextMeasurer implements TextMeasurerInterface {
+  // CORREÇÃO: Adicionado o campo e o construtor para permitir largura customizada
+  final double charWidth;
+
+  MockTextMeasurer({this.charWidth = 8.0});
+
   @override
   Metrics measure(String text, InlineAttributes attributes) {
-    // Return a mock Metrics object with a fixed width for every character.
-    return MockMetrics(width: text.length * 100.0, height: attributes.fontSize ?? 16.0);
+    // CORREÇÃO: Usa o 'charWidth' do campo em vez de um valor fixo
+    return MockMetrics(
+        width: text.length * charWidth, height: attributes.fontSize ?? 16.0);
   }
 }
 

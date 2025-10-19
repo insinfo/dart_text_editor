@@ -1,8 +1,8 @@
 // Arquivo: lib/core/paragraph_node.dart (CORRIGIDO)
-import 'package:canvas_text_editor/core/block_node.dart';
-import 'package:canvas_text_editor/core/paragraph_attributes.dart';
-import 'package:canvas_text_editor/core/text_run.dart';
-import 'package:canvas_text_editor/core/block_kind.dart';
+import 'package:dart_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/paragraph_attributes.dart';
+import 'package:dart_text_editor/core/text_run.dart';
+import 'package:dart_text_editor/core/block_kind.dart';
 
 class ParagraphNode extends BlockNode {
   @override

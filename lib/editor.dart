@@ -1,28 +1,29 @@
+// Arquivo: C:\MyDartProjects\canvas_text_editor\lib\editor.dart
 import 'dart:async';
-import 'package:canvas_text_editor/core/apply_inline_attributes_command.dart';
-import 'package:canvas_text_editor/core/document_model.dart';
-import 'package:canvas_text_editor/core/editor_command.dart';
-import 'package:canvas_text_editor/core/editor_state.dart';
-import 'package:canvas_text_editor/core/insert_text_command.dart';
-import 'package:canvas_text_editor/core/enter_command.dart';
-import 'package:canvas_text_editor/core/backspace_command.dart';
-import 'package:canvas_text_editor/core/delete_command.dart';
-import 'package:canvas_text_editor/core/move_caret_command.dart';
-import 'package:canvas_text_editor/core/undo_command.dart';
-import 'package:canvas_text_editor/core/redo_command.dart';
-import 'package:canvas_text_editor/core/position.dart';
-import 'package:canvas_text_editor/core/selection.dart';
-import 'package:canvas_text_editor/core/transaction.dart';
-import 'package:canvas_text_editor/core/delta.dart';
-import 'package:canvas_text_editor/layout/page_constraints.dart';
-import 'package:canvas_text_editor/layout/paginator.dart';
-import 'package:canvas_text_editor/render/canvas_page_painter.dart';
-import 'package:canvas_text_editor/render/editor_theme.dart';
-import 'package:canvas_text_editor/render/measure_cache.dart';
-import 'package:canvas_text_editor/render/text_measurer.dart';
-import 'package:canvas_text_editor/util/dom_api.dart';
-import 'package:canvas_text_editor/util/dom_api_stub.dart'
-    if (dart.library.html) 'package:canvas_text_editor/util/dom_api_web.dart'
+import 'package:dart_text_editor/core/apply_inline_attributes_command.dart';
+import 'package:dart_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/editor_command.dart';
+import 'package:dart_text_editor/core/editor_state.dart';
+import 'package:dart_text_editor/core/insert_text_command.dart';
+import 'package:dart_text_editor/core/enter_command.dart';
+import 'package:dart_text_editor/core/backspace_command.dart';
+import 'package:dart_text_editor/core/delete_command.dart';
+import 'package:dart_text_editor/core/move_caret_command.dart';
+import 'package:dart_text_editor/core/undo_command.dart';
+import 'package:dart_text_editor/core/redo_command.dart';
+import 'package:dart_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/transaction.dart';
+import 'package:dart_text_editor/core/delta.dart';
+import 'package:dart_text_editor/layout/page_constraints.dart';
+import 'package:dart_text_editor/layout/paginator.dart';
+import 'package:dart_text_editor/render/canvas_page_painter.dart';
+import 'package:dart_text_editor/render/editor_theme.dart';
+import 'package:dart_text_editor/render/measure_cache.dart';
+import 'package:dart_text_editor/render/text_measurer.dart';
+import 'package:dart_text_editor/util/dom_api.dart';
+import 'package:dart_text_editor/util/dom_api_stub.dart'
+    if (dart.library.html) 'package:dart_text_editor/util/dom_api_web.dart'
     as dom_api;
 
 class Editor {
@@ -68,7 +69,8 @@ class Editor {
         _document = documentApi ?? dom_api.createDocument() {
     this.measureCache =
         measureCache ?? MeasureCache(TextMeasurer(canvas.context2D));
-    this.paginator = paginator ?? Paginator(this.measureCache);  // Initialize paginator first
+    this.paginator =
+        paginator ?? Paginator(this.measureCache); // Initialize paginator first
     painter = CanvasPagePainter(this.theme, this.measureCache, _requestPaint);
     _setupOverlay();
     _listenToEvents();
@@ -92,9 +94,19 @@ class Editor {
 
     if (command is ApplyInlineAttributesCommand &&
         state.selection.isCollapsed) {
-      final newTypingAttributes =
-          state.typingAttributes.merge(command.attributes);
-      state = state.copyWith(typingAttributes: newTypingAttributes);
+      state = state.copyWith(
+        typingAttributes: state.typingAttributes.copyWith(
+          bold: command.bold,
+          italic: command.italic,
+          underline: command.underline,
+          strikethrough: command.strikethrough,
+          link: command.link,
+          fontSize: command.fontSize,
+          fontColor: command.fontColor,
+          backgroundColor: command.backgroundColor,
+          fontFamily: command.fontFamily,
+        ),
+      );
       return;
     }
 
@@ -323,23 +335,23 @@ class Editor {
       perDeltaInverses.add(res.inverse);
       workingDoc = res.document;
     }
-    try {
-      for (var i = 0; i < perDeltaInverses.length; i++) {
-        print(
-            '[DEBUG perDeltaInverse $i] ops=${perDeltaInverses[i].ops.map((o) => o.toString()).toList()} length=${perDeltaInverses[i].length}');
-      }
-    } catch (_) {}
+    // try {
+    //   for (var i = 0; i < perDeltaInverses.length; i++) {
+    //     print(
+    //         '[DEBUG perDeltaInverse $i] ops=${perDeltaInverses[i].ops.map((o) => o.toString()).toList()} length=${perDeltaInverses[i].length}');
+    //   }
+    // } catch (_) {}
 
     final batchedInverse = Delta();
     for (var i = perDeltaInverses.length - 1; i >= 0; i--) {
       batchedInverse.compose(perDeltaInverses[i]);
     }
-    try {
-      print(
-          '[DEBUG _finalizeBatch] batchedDelta.ops=${batchedDelta.ops.map((o) => o.toString()).toList()}');
-      print(
-          '[DEBUG _finalizeBatch] batchedInverse.ops=${batchedInverse.ops.map((o) => o.toString()).toList()}');
-    } catch (_) {}
+    // try {
+    //   print(
+    //       '[DEBUG _finalizeBatch] batchedDelta.ops=${batchedDelta.ops.map((o) => o.toString()).toList()}');
+    //   print(
+    //       '[DEBUG _finalizeBatch] batchedInverse.ops=${batchedInverse.ops.map((o) => o.toString()).toList()}');
+    // } catch (_) {}
 
     final inverseTransaction = Transaction(
         batchedDelta, batchedInverse, beforeSelection, afterSelection,
@@ -350,10 +362,10 @@ class Editor {
       ..add(inverseTransaction);
 
     state = state.copyWith(undoStack: newUndoStack, redoStack: []);
-    try {
-      print(
-          '[DEBUG _finalizeBatch] document after batch=${state.document.nodes.map((n) => n.runtimeType.toString()).join('|')}');
-    } catch (_) {}
+    // try {
+    //   print(
+    //       '[DEBUG _finalizeBatch] document after batch=${state.document.nodes.map((n) => n.runtimeType.toString()).join('|')}');
+    // } catch (_) {}
 
     _isBatching = false;
     _batchTimer?.cancel();
@@ -424,6 +436,12 @@ class Editor {
           return;
         }
         execute(MoveCaretCommand(dir, paginator, extend: event.shiftKey));
+      } else if (event.key == 'Home') {
+        execute(MoveCaretCommand(CaretMovement.lineStart, paginator,
+            extend: event.shiftKey));
+      } else if (event.key == 'End') {
+        execute(MoveCaretCommand(CaretMovement.lineEnd, paginator,
+            extend: event.shiftKey));
       } else if (event.ctrlKey || event.metaKey) {
         if (event.key == 'z') {
           execute(UndoCommand());
@@ -451,6 +469,8 @@ class Editor {
       if (position != null) {
         _dragAnchorPosition = position;
         _isDragging = true;
+        paginator.keyboardAnchor =
+            position; // Âncora para o arrasto com mouse
         state = state.copyWith(selection: Selection.collapsed(position));
         _requestPaint();
       }
@@ -475,6 +495,16 @@ class Editor {
     _overlay.onMouseUp.listen((event) {
       _isDragging = false;
       _dragAnchorPosition = null;
+    });
+
+    _overlay.onDoubleClick.listen((event) {
+      final currentSelection = state.selection;
+      if (currentSelection.isCollapsed) {
+        final newSelection =
+            currentSelection.expandToWordBoundaries(state.document);
+        state = state.copyWith(selection: newSelection);
+        _requestPaint();
+      }
     });
 
     canvas.onClick.listen((event) {

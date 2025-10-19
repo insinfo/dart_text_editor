@@ -1,4 +1,3 @@
-
 enum BlockKind {
   paragraph,
   list,

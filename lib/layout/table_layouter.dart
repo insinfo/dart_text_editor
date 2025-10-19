@@ -1,7 +1,7 @@
-import 'package:canvas_text_editor/core/table_node.dart';
-import 'package:canvas_text_editor/layout/page_constraints.dart';
-import 'package:canvas_text_editor/layout/table_layout_result.dart';
-import 'package:canvas_text_editor/layout/table_row_layout.dart';
+import 'package:dart_text_editor/core/table_node.dart';
+import 'package:dart_text_editor/layout/page_constraints.dart';
+import 'package:dart_text_editor/layout/table_layout_result.dart';
+import 'package:dart_text_editor/layout/table_row_layout.dart';
 
 class TableLayouter {
   TableLayoutResult layout(TableNode node, PageConstraints constraints) {

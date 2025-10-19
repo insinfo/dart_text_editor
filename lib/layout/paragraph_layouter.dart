@@ -1,29 +1,23 @@
-import 'package:canvas_text_editor/core/offset.dart';
-import 'package:canvas_text_editor/core/paragraph_node.dart';
-import 'package:canvas_text_editor/core/text_run.dart';
-import 'package:canvas_text_editor/layout/page_constraints.dart';
-import 'package:canvas_text_editor/layout/paragraph_layout_result.dart';
-import 'package:canvas_text_editor/layout/layout_line.dart';
-import 'package:canvas_text_editor/render/measure_cache.dart';
+// Arquivo: C:\MyDartProjects\canvas_text_editor\lib\layout\paragraph_layouter.dart
+import 'package:dart_text_editor/core/offset.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
+import 'package:dart_text_editor/core/text_run.dart';
+import 'package:dart_text_editor/layout/page_constraints.dart';
+import 'package:dart_text_editor/layout/paragraph_layout_result.dart';
+import 'package:dart_text_editor/layout/layout_line.dart';
+import 'package:dart_text_editor/render/measure_cache.dart';
 
-/// Layouter com política correta de quebra:
-/// - Quebra em whitespace **consome 1 espaço** para fechar a linha (não duplica).
-/// - Espaços à esquerda da linha viram spans `hidden` (width=0), mas contam no offset.
-/// - Múltiplos espaços são preservados (1:1 com o texto).
-/// - Palavras muito longas são quebradas em fragmentos que caibam.
-/// - getCaretXY / getIndexFromXY fazem mapeamento fiel texto⇄tela.
 class ParagraphLayouter {
   final MeasureCache measureCache;
 
   ParagraphLayouter(this.measureCache);
 
-  ParagraphLayoutResult layout(ParagraphNode node, PageConstraints constraints) {
+  ParagraphLayoutResult layout(
+      ParagraphNode node, PageConstraints constraints) {
     final lines = <LayoutLine>[];
     var currentLineSpans = <LayoutSpan>[];
     var currentLineWidth = 0.0;
     var totalHeight = 0.0;
-
-    // Offset absoluto dentro do ParagraphNode (sempre 1:1 com node.text)
     var cursorInNode = 0;
 
     double lineHeightFor(List<LayoutSpan> spans) {
@@ -35,6 +29,7 @@ class ParagraphLayouter {
     }
 
     void breakLineNow() {
+      if (currentLineSpans.isEmpty) return;
       final h = lineHeightFor(currentLineSpans);
       lines.add(LayoutLine(List.of(currentLineSpans), h, currentLineWidth));
       totalHeight += h;
@@ -42,118 +37,105 @@ class ParagraphLayouter {
       currentLineWidth = 0.0;
     }
 
-    // Adiciona span normal (visível)
-    void pushSpan(String text, TextRun run, int startInNode) {
+    void pushSpan(String text, TextRun run, int startInNode, double width) {
       if (text.isEmpty) return;
-      final w = measureCache.measure(text, run.attributes).width;
       currentLineSpans.add(LayoutSpan(
         run.copyWith(text: text),
         startInNode,
         startInNode + text.length,
       ));
-      currentLineWidth += w;
+      currentLineWidth += width;
     }
 
-    // Adiciona span oculto (conta no offset, não altera largura/x visual)
-    void pushHiddenSpan(int count, TextRun run, int startInNode) {
-      if (count <= 0) return;
+    void pushHiddenSpan(String text, TextRun run, int startInNode) {
+      if (text.isEmpty) return;
       currentLineSpans.add(LayoutSpan.hidden(
-        run.copyWith(text: ' ' * count),
+        run.copyWith(text: text),
         startInNode,
-        startInNode + count,
+        startInNode + text.length,
       ));
-      // width 0; NÃO mexe em currentLineWidth
     }
 
-    // Separa texto do run em tokens preservando espaços: (\s+|\S+)
     final tokenRegex = RegExp(r'(\s+|\S+)');
 
     for (final run in node.runs) {
       final text = run.text;
-      if (text.isEmpty) continue;
+      if (text.isEmpty) {
+        cursorInNode += run.text.length;
+        continue;
+      }
 
-      final matches = tokenRegex.allMatches(text).toList();
-      var posInRun = 0; // posição relativa dentro do run atual (0..text.length)
+      final matches = tokenRegex.allMatches(text);
+      var posInRun = 0;
 
-      int globalOffset(int local) => cursorInNode + local;
-
-      for (final m in matches) {
-        final token = m.group(0)!;
-        final isSpace = token.trim().isEmpty;
-
-        // ---------------- Espaços ----------------
-        if (isSpace) {
-          if (currentLineWidth > 0) {
-            // Always add the space to the current line when there's content
-            pushSpan(token, run, globalOffset(posInRun));
-            posInRun += token.length;
-            
-            // If we're near the right edge, break to next line
-            if (currentLineWidth + measureCache.measure(" ", run.attributes).width >= constraints.width) {
-              breakLineNow();
-            }
-          } else {
-            // At start of line, treat as a hidden space
-            pushHiddenSpan(token.length, run, globalOffset(posInRun));
-            posInRun += token.length;
-          }
-          continue;
-        }
-
-        // ---------------- Palavra ----------------
+      for (final match in matches) {
+        final token = match.group(0)!;
         final tokenWidth = measureCache.measure(token, run.attributes).width;
+        final isSpace = token.trim().isEmpty;
+        final startOffsetInNode = cursorInNode + posInRun;
 
-        // Se a palavra não cabe na linha atual e já tem conteúdo, quebra a linha
-        if (currentLineWidth > 0.0 && currentLineWidth + tokenWidth > constraints.width) {
+        
+        // 1. Se o token não cabe na linha atual (e a linha não está vazia), quebra.
+        // if (currentLineWidth > 0 &&
+        //     currentLineWidth + tokenWidth > constraints.width &&
+        //     !isSpace) {
+        //   breakLineNow();
+        // }
+        // LÓGICA DE QUEBRA CORRIGIDA
+        // 1. Se o token não cabe na linha atual (e a linha não está vazia), quebra.
+        if (currentLineWidth > 0 &&
+            currentLineWidth + tokenWidth > constraints.width) {
           breakLineNow();
         }
 
-        // Se ainda assim a palavra não couber (muito grande), fragmenta
-        if (tokenWidth > constraints.width) {
-          var start = 0;
-          while (start < token.length) {
-            var end = start + 1;
-            var lastValidEnd = end;
-
-            // Tenta estender até o máximo que couber na linha
-            while (end <= token.length) {
-              final fragment = token.substring(start, end);
-              final fragmentWidth = measureCache.measure(fragment, run.attributes).width;
-              
-              if (currentLineWidth + fragmentWidth <= constraints.width) {
-                lastValidEnd = end;
-                end++;
-              } else {
+        // 2. Lida com palavras que são maiores que a própria linha
+        if (tokenWidth > constraints.width && !isSpace) {
+          var startInToken = 0;
+          while (startInToken < token.length) {
+            var endInToken = startInToken;
+            var lastFitEnd = startInToken;
+            var fragmentWidth = 0.0;
+            // Encontra o maior fragmento que cabe na linha
+            while (endInToken < token.length) {
+              final nextChar = token.substring(endInToken, endInToken + 1);
+              final nextCharWidth =
+                  measureCache.measure(nextChar, run.attributes).width;
+              if (currentLineWidth + fragmentWidth + nextCharWidth >
+                  constraints.width) {
                 break;
               }
+              fragmentWidth += nextCharWidth;
+              endInToken++;
+              lastFitEnd = endInToken;
             }
 
-            // Se não conseguiu estender (nem 1 char cabe), força quebra de linha
-            if (lastValidEnd == start && currentLineWidth > 0) {
-              breakLineNow();
-              continue;
+            if (lastFitEnd == startInToken) {
+              if (currentLineWidth > 0) breakLineNow();
+              lastFitEnd = startInToken + 1; // Força pelo menos 1 char
             }
 
-            // Adiciona o maior fragmento que coube
-            final frag = token.substring(start, lastValidEnd);
-            pushSpan(frag, run, globalOffset(posInRun + start));
-            
-            // Se ainda tem mais caracteres, quebra a linha
-            start = lastValidEnd;
-            if (start < token.length) {
+            final fragment = token.substring(startInToken, lastFitEnd);
+            final fragWidth =
+                measureCache.measure(fragment, run.attributes).width;
+            pushSpan(
+                fragment, run, startOffsetInNode + startInToken, fragWidth);
+            startInToken = lastFitEnd;
+
+            if (startInToken < token.length) {
               breakLineNow();
             }
           }
         } else {
-          // Palavra cabe inteira na linha atual
-          pushSpan(token, run, globalOffset(posInRun));
+          // 3. Adiciona o token à linha (nova ou atual)
+          if (isSpace && currentLineWidth == 0) {
+            pushHiddenSpan(token, run, startOffsetInNode);
+          } else {
+            pushSpan(token, run, startOffsetInNode, tokenWidth);
+          }
         }
-
         posInRun += token.length;
       }
-
-      // Avança o cursor global pelo tamanho desse run
-      cursorInNode += text.length;
+      cursorInNode += run.text.length;
     }
 
     if (currentLineSpans.isNotEmpty) {
@@ -163,9 +145,8 @@ class ParagraphLayouter {
     return ParagraphLayoutResult(lines, totalHeight);
   }
 
-  /// Retorna (x,y) para linha/coluna **relativa à linha**.
-  /// Spans `hidden` apenas consomem colunas; não afetam `x`.
-  Offset getCaretXY(ParagraphLayoutResult layoutResult, int lineIndex, int column) {
+  Offset getCaretXY(
+      ParagraphLayoutResult layoutResult, int lineIndex, int column) {
     if (layoutResult.lines.isEmpty) return Offset.zero;
     lineIndex = lineIndex.clamp(0, layoutResult.lines.length - 1);
 
@@ -203,14 +184,11 @@ class ParagraphLayouter {
     return Offset(x, y);
   }
 
-  /// Mapeia (x,y) → offset no nó.
-  /// `hidden` soma apenas offset; visível usa largura cumulativa por caractere.
   int getIndexFromXY(ParagraphLayoutResult layoutResult, double x, double y) {
     if (layoutResult.lines.isEmpty) return 0;
 
-    // Seleciona a linha pelo Y
     var yOffset = 0.0;
-    var lineIndex = 0;
+    var lineIndex = -1;
     for (var i = 0; i < layoutResult.lines.length; i++) {
       final h = layoutResult.lines[i].height;
       if (y >= yOffset && y < yOffset + h) {
@@ -219,17 +197,24 @@ class ParagraphLayouter {
       }
       yOffset += h;
     }
+
+    if (lineIndex == -1) {
+      return layoutResult.lines.last.spans.last.endInNode;
+    }
+
     final line = layoutResult.lines[lineIndex];
-    if (line.spans.isEmpty) return 0;
+    if (line.spans.isEmpty) {
+      return lineIndex > 0
+          ? layoutResult.lines[lineIndex - 1].spans.last.endInNode
+          : 0;
+    }
 
     var absoluteOffset = line.spans.first.startInNode;
     var xCursor = 0.0;
 
     for (final span in line.spans) {
-      final spanLen = span.endInNode - span.startInNode;
-
       if (span.hidden) {
-        absoluteOffset += spanLen;
+        absoluteOffset += span.run.text.length;
         continue;
       }
 
@@ -238,14 +223,13 @@ class ParagraphLayouter {
         final ch = run.text[i];
         final w = measureCache.measure(ch, run.attributes).width;
         if (x < xCursor + w / 2) {
-          return absoluteOffset + i;
+          return absoluteOffset;
         }
         xCursor += w;
+        absoluteOffset++;
       }
-      absoluteOffset += spanLen;
     }
 
-    // Passou do fim: retorna fim da linha
     return line.spans.last.endInNode;
   }
 }

@@ -1,9 +1,9 @@
-import 'package:canvas_text_editor/core/delta.dart';
-import 'package:canvas_text_editor/core/editor_command.dart';
-import 'package:canvas_text_editor/core/editor_state.dart';
-import 'package:canvas_text_editor/core/position.dart';
-import 'package:canvas_text_editor/core/selection.dart';
-import 'package:canvas_text_editor/core/transaction.dart';
+import 'package:dart_text_editor/core/delta.dart';
+import 'package:dart_text_editor/core/editor_command.dart';
+import 'package:dart_text_editor/core/editor_state.dart';
+import 'package:dart_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/transaction.dart';
 
 class EnterCommand implements EditorCommand {
   @override
@@ -25,7 +25,8 @@ class EnterCommand implements EditorCommand {
 
     // The new position will be at the start of the new paragraph (node index + 1, offset 0)
     // DocumentModel.apply will return the correct new caret position.
-    final newSelection = Selection.collapsed(Position(selection.start.node + 1, 0));
+    final newSelection =
+        Selection.collapsed(Position(selection.start.node + 1, 0));
 
     return Transaction.compat(delta, selection, newSelection);
   }

@@ -1,6 +1,6 @@
 // Arquivo: lib/core/selection.dart (COMPLETO E CORRIGIDO)
-import 'package:canvas_text_editor/core/position.dart';
-import 'package:canvas_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/document_model.dart';
 
 class Selection {
   final Position start;

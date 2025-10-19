@@ -1,8 +1,8 @@
-import 'package:canvas_text_editor/core/delta.dart';
-import 'package:canvas_text_editor/core/editor_command.dart';
-import 'package:canvas_text_editor/core/editor_state.dart';
+import 'package:dart_text_editor/core/delta.dart';
+import 'package:dart_text_editor/core/editor_command.dart';
+import 'package:dart_text_editor/core/editor_state.dart';
 
-import 'package:canvas_text_editor/core/transaction.dart';
+import 'package:dart_text_editor/core/transaction.dart';
 
 /// A marker command to trigger the redo functionality in the editor.
 class RedoCommand implements EditorCommand {

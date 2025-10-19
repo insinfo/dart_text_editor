@@ -1,4 +1,3 @@
-
 class TextPosition {
   final double x;
   final double y;

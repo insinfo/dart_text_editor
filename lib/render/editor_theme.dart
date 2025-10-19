@@ -1,5 +1,4 @@
-
-import 'package:canvas_text_editor/util/web_ui.dart';
+import 'package:dart_text_editor/util/web_ui.dart';
 
 class EditorTheme {
   final Color fontColor;
@@ -12,8 +11,15 @@ class EditorTheme {
   final double marginRightPt;
   final double listBulletIndentPt;
 
-  EditorTheme({this.tableBorderWidthPt = 0.75, this.firstIndent = 0.0, this.spacingBefore = 0.0, this.marginTopPt = 0.0, this.marginRightPt = 0.0, this.listBulletIndentPt = 18.0, this.fontColor = const Color(0xFF000000), this.selectionColor = const Color(0xFFADD8E6)});
-
+  EditorTheme(
+      {this.tableBorderWidthPt = 0.75,
+      this.firstIndent = 0.0,
+      this.spacingBefore = 0.0,
+      this.marginTopPt = 0.0,
+      this.marginRightPt = 0.0,
+      this.listBulletIndentPt = 18.0,
+      this.fontColor = const Color(0xFF000000),
+      this.selectionColor = const Color(0xFFADD8E6)});
 
   // TODO: Implement EditorTheme properties and methods
 }

@@ -1,4 +1,4 @@
-import 'package:canvas_text_editor/render/virtualization_strategy.dart';
+import 'package:dart_text_editor/render/virtualization_strategy.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -1,4 +1,4 @@
-
+// Arquivo: lib/core/inline_attributes.dart (COMPLETO E CORRIGIDO)
 class InlineAttributes {
   final bool bold;
   final bool italic;
@@ -47,16 +47,28 @@ class InlineAttributes {
   }
 
   InlineAttributes merge(InlineAttributes other) {
+    // CORREÇÃO: A lógica de merge foi alterada para funcionar como um "patch"
+    // ou "toggle". Um atributo de `other` só sobrescreve o atributo de `this`
+    // se for diferente do valor padrão. Isso evita que, ao se passar
+    // `InlineAttributes(bold: false)`, o atributo `italic` (que por padrão é
+    // `false` em `other`) sobrescreva um valor `true` em `this`.
+    const defaults = InlineAttributes();
     return copyWith(
-      bold: other.bold,
+      bold: other.bold, // Atributos booleanos são sempre aplicados
       italic: other.italic,
       underline: other.underline,
       strikethrough: other.strikethrough,
-      link: other.link,
-      fontSize: other.fontSize,
-      fontColor: other.fontColor,
-      backgroundColor: other.backgroundColor,
-      fontFamily: other.fontFamily,
+      // Atributos que podem ser nulos são aplicados se forem diferentes do padrão
+      link: other.link != defaults.link ? other.link : link,
+      fontSize: other.fontSize != defaults.fontSize ? other.fontSize : fontSize,
+      fontColor:
+          other.fontColor != defaults.fontColor ? other.fontColor : fontColor,
+      backgroundColor: other.backgroundColor != defaults.backgroundColor
+          ? other.backgroundColor
+          : backgroundColor,
+      fontFamily: other.fontFamily != defaults.fontFamily
+          ? other.fontFamily
+          : fontFamily,
     );
   }
 

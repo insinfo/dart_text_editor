@@ -1,11 +1,13 @@
+//C:\MyDartProjects\canvas_text_editor\lib\util\dom_api_stub.dart
 // Lightweight non-web stub implementations for testing on the Dart VM.
+// Arquivo: lib/util/dom_api_stub.dart (COMPLETO E CORRIGIDO)
 import 'dart:async';
 
 import 'dom_api.dart';
 
 class _StubCanvasRenderingContext2D implements CanvasRenderingContext2DApi {
   @override
-  double measureTextWidth(String text) => text.length.toDouble() * 7.0;
+  double measureTextWidth(String text) => text.length.toDouble() * 8.0;
 
   @override
   void beginPath() {}
@@ -59,6 +61,9 @@ class _StubCanvasElementApi implements CanvasElementApi {
   RectangleApi getBoundingClientRect() => _StubRectangleApi();
   @override
   Stream<MouseEventApi> get onClick => const Stream.empty();
+
+  @override
+  Stream<MouseEventApi> get onDoubleClick => const Stream.empty();
 }
 
 class _StubRectangleApi implements RectangleApi {
@@ -96,6 +101,9 @@ class _StubDivElementApi implements DivElementApi {
   Stream<MouseEventApi> get onClick => const Stream.empty();
 
   @override
+  Stream<MouseEventApi> get onDoubleClick => const Stream.empty();
+
+  @override
   int? tabIndex;
 }
 
@@ -114,7 +122,7 @@ class _StubCssStyleDeclarationApi implements CssStyleDeclarationApi {
   set width(String value) {}
   @override
   set zIndex(String value) {}
-  
+
   @override
   void setProperty(String name, String value) {
     // TODO: implement setProperty

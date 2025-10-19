@@ -1,7 +1,7 @@
-import 'package:canvas_text_editor/core/block_kind.dart';
-import 'package:canvas_text_editor/core/block_node.dart';
-import 'package:canvas_text_editor/core/list_item_node.dart';
-import 'package:canvas_text_editor/core/list_attributes.dart';
+import 'package:dart_text_editor/core/block_kind.dart';
+import 'package:dart_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/list_item_node.dart';
+import 'package:dart_text_editor/core/list_attributes.dart';
 
 class ListNode extends BlockNode {
   final List<ListItemNode> items;

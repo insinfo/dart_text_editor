@@ -1,4 +1,4 @@
-import 'package:canvas_text_editor/layout/table_row_layout.dart';
+import 'package:dart_text_editor/layout/table_row_layout.dart';
 
 class TableLayoutResult {
   final List<TableRowLayout> rows;

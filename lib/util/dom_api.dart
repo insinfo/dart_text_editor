@@ -1,3 +1,5 @@
+//C:\MyDartProjects\canvas_text_editor\lib\util\dom_api.dart
+// Arquivo: lib/util/dom_api.dart (COMPLETO E CORRIGIDO)
 import 'dart:async';
 
 abstract class NodeApi {}
@@ -10,6 +12,8 @@ abstract class CanvasElementApi extends NodeApi {
   CanvasRenderingContext2DApi get context2D;
   RectangleApi getBoundingClientRect();
   Stream<MouseEventApi> get onClick;
+  // LINHA ADICIONADA:
+  Stream<MouseEventApi> get onDoubleClick;
 }
 
 abstract class CanvasRenderingContext2DApi {
@@ -50,6 +54,7 @@ abstract class DivElementApi extends NodeApi {
   Stream<MouseEventApi> get onMouseMove;
   Stream<MouseEventApi> get onMouseUp;
   Stream<MouseEventApi> get onClick;
+  Stream<MouseEventApi> get onDoubleClick;
 }
 
 abstract class CssStyleDeclarationApi {
@@ -61,7 +66,6 @@ abstract class CssStyleDeclarationApi {
   set opacity(String value);
   set zIndex(String value);
 
-  // NOVO: setter genérico para propriedades CSS não mapeadas
   void setProperty(String name, String value);
 }
 

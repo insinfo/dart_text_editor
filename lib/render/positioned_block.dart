@@ -1,4 +1,4 @@
-import 'package:canvas_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/block_node.dart';
 
 class PositionedBlock {
   final BlockNode node;

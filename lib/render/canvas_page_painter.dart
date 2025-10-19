@@ -1,17 +1,18 @@
-// Arquivo: lib/render/canvas_page_painter.dart (CORRIGIDO)
+// Arquivo: lib/render/canvas_page_painter.dart (COMPLETO E CORRIGIDO)
 import 'dart:async';
-import 'package:canvas_text_editor/core/inline_attributes.dart';
-import 'package:canvas_text_editor/core/paragraph_node.dart';
-import 'package:canvas_text_editor/core/image_node.dart';
-import 'package:canvas_text_editor/core/selection.dart';
-import 'package:canvas_text_editor/layout/page_layout.dart';
-import 'package:canvas_text_editor/layout/text_position.dart';
-import 'package:canvas_text_editor/render/editor_theme.dart';
-import 'package:canvas_text_editor/layout/page_constraints.dart';
-import 'package:canvas_text_editor/util/web_ui.dart';
-import 'package:canvas_text_editor/layout/paragraph_layouter.dart';
-import 'package:canvas_text_editor/render/measure_cache.dart';
-import 'package:canvas_text_editor/util/dom_api.dart';
+
+import 'package:dart_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
+import 'package:dart_text_editor/core/image_node.dart';
+import 'package:dart_text_editor/core/selection.dart';
+import 'package:dart_text_editor/layout/page_layout.dart';
+import 'package:dart_text_editor/layout/text_position.dart';
+import 'package:dart_text_editor/render/editor_theme.dart';
+import 'package:dart_text_editor/layout/page_constraints.dart';
+import 'package:dart_text_editor/util/web_ui.dart';
+import 'package:dart_text_editor/layout/paragraph_layouter.dart';
+import 'package:dart_text_editor/render/measure_cache.dart';
+import 'package:dart_text_editor/util/dom_api.dart';
 
 class CanvasPagePainter {
   final EditorTheme theme;
@@ -41,12 +42,9 @@ class CanvasPagePainter {
 
   void paint(CanvasRenderingContext2DApi ctx, PageLayout page,
       PageConstraints constraints, Selection selection) {
-    // CORREÇÃO B3: Um único save/restore por página.
     ctx.save();
 
     ctx.textBaseline = 'alphabetic';
-    // A translação agora acontece dentro do loop de pintura do editor
-    // ctx.translate(0, page.yOrigin);
 
     ctx.beginPath();
     ctx.rect(
@@ -68,18 +66,58 @@ class CanvasPagePainter {
         final layoutResult = layouter.layout(paragraphNode, blockConstraints);
 
         var yLineOffset = block.y + constraints.marginTop;
+
         for (var lineIndex = 0;
             lineIndex < layoutResult.lines.length;
             lineIndex++) {
           final line = layoutResult.lines[lineIndex];
-
-          var xLineOffset = block.x + constraints.marginLeft;
-
           final lineBaseHeight = line.height /
               (paragraphNode.attributes.lineSpacing * constraints.zoomLevel);
+
+          // Ponto de início da seleção (se houver nesta linha)
+          final selStartNode = selection.start.node;
+          final selEndNode = selection.end.node;
+          final selStartOffset = selection.start.offset;
+          final selEndOffset = selection.end.offset;
+
+          // Lógica de pintura de seleção
+          if (!selection.isCollapsed &&
+              block.nodeIndex >= selStartNode &&
+              block.nodeIndex <= selEndNode) {
+            final firstSpan = line.spans.first;
+            final lastSpan = line.spans.last;
+            final lineStartOffset = firstSpan.startInNode;
+            final lineEndOffset = lastSpan.endInNode;
+
+            // Define o início e fim da seleção *nesta linha específica*
+            final selectionStartOnLine = (block.nodeIndex == selStartNode)
+                ? selStartOffset.clamp(lineStartOffset, lineEndOffset)
+                : lineStartOffset;
+
+            final selectionEndOnLine = (block.nodeIndex == selEndNode)
+                ? selEndOffset.clamp(lineStartOffset, lineEndOffset)
+                : lineEndOffset;
+
+            if (selectionEndOnLine > selectionStartOnLine) {
+              final columnStart = selectionStartOnLine - lineStartOffset;
+              final columnEnd = selectionEndOnLine - lineStartOffset;
+              final startCoords =
+                  layouter.getCaretXY(layoutResult, lineIndex, columnStart);
+              final endCoords =
+                  layouter.getCaretXY(layoutResult, lineIndex, columnEnd);
+
+              ctx.fillStyle = theme.selectionColor.toRgbaString();
+              ctx.fillRect(
+                  block.x + constraints.marginLeft + startCoords.dx,
+                  yLineOffset,
+                  endCoords.dx - startCoords.dx,
+                  line.height);
+            }
+          }
+
+          var xLineOffset = block.x + constraints.marginLeft;
           yLineOffset += lineBaseHeight;
 
-          // Lógica de alinhamento
           switch (paragraphNode.attributes.align) {
             case TextAlign.center:
               xLineOffset += (block.width - line.width) / 2;
@@ -87,18 +125,16 @@ class CanvasPagePainter {
             case TextAlign.right:
               xLineOffset += (block.width - line.width);
               break;
-            default: // left or justify
+            default:
               break;
           }
 
           for (final span in line.spans) {
+            if (span.hidden) continue;
             final attributes = span.run.attributes;
             ctx.font = _fontString(attributes, constraints.zoomLevel);
             ctx.fillStyle =
                 attributes.fontColor ?? theme.fontColor.toRgbaString();
-
-            // Lógica de pintura de seleção
-            // TODO: Implementar pintura de seleção que abrange múltiplos spans/linhas/blocos
 
             ctx.fillText(span.run.text, xLineOffset, yLineOffset);
             xLineOffset +=
@@ -142,7 +178,10 @@ class CanvasPagePainter {
     if (!_cursorVisible) return;
     ctx.save();
     ctx.fillStyle = 'black';
-    ctx.fillRect(cursorPosition.x + 56.7, cursorPosition.y + 56.7, 1,
+    // Adiciona a margem da página às coordenadas do cursor
+    final marginLeft = 56.7;
+    final marginTop = 56.7;
+    ctx.fillRect(cursorPosition.x + marginLeft, cursorPosition.y + marginTop, 1,
         cursorPosition.height);
     ctx.restore();
   }

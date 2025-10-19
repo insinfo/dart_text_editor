@@ -1,4 +1,4 @@
-import 'package:canvas_text_editor/layout/widow_orphan_control.dart';
+import 'package:dart_text_editor/layout/widow_orphan_control.dart';
 
 class PageConstraints {
   final double width;
@@ -10,7 +10,10 @@ class PageConstraints {
   final WidowOrphanControl widowOrphan;
   final double zoomLevel;
 
-  factory PageConstraints.a4({double marginAllPt = 0.0, WidowOrphanControl widowOrphan = const WidowOrphanControl(), double zoomLevel = 1.0}) {
+  factory PageConstraints.a4(
+      {double marginAllPt = 0.0,
+      WidowOrphanControl widowOrphan = const WidowOrphanControl(),
+      double zoomLevel = 1.0}) {
     const double pageWidthPt = 595.275;
     const double pageHeightPt = 841.89;
     return PageConstraints(

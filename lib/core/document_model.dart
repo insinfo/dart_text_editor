@@ -1,12 +1,12 @@
 // Arquivo: lib/core/document_model.dart (COMPLETO E CORRIGIDO)
 // ignore_for_file: curly_braces_in_flow_control_structures
 
-import 'package:canvas_text_editor/core/block_node.dart';
-import 'package:canvas_text_editor/core/delta.dart';
-import 'package:canvas_text_editor/core/paragraph_node.dart';
-import 'package:canvas_text_editor/core/position.dart';
-import 'package:canvas_text_editor/core/inline_attributes.dart';
-import 'package:canvas_text_editor/core/text_run.dart';
+import 'package:dart_text_editor/core/block_node.dart';
+import 'package:dart_text_editor/core/delta.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
+import 'package:dart_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/core/text_run.dart';
 
 enum SearchDirection {
   forward,
@@ -29,11 +29,11 @@ class DocumentModel {
   }
 
   int get length => nodes.asMap().entries.fold(0, (sum, e) {
-    final i = e.key;
-    final node = e.value;
-    final sep = (node is ParagraphNode && i < nodes.length - 1) ? 1 : 0;
-    return sum + node.length + sep;
-  });
+        final i = e.key;
+        final node = e.value;
+        final sep = (node is ParagraphNode && i < nodes.length - 1) ? 1 : 0;
+        return sum + node.length + sep;
+      });
 
   // CORREÇÃO B1: Ajustado para não contar o '\n' implícito no final de cada parágrafo de forma inconsistente.
   // O separador de parágrafo é conceitual, não um caractere extra no offset.
@@ -49,9 +49,16 @@ class DocumentModel {
     var current = 0;
     for (var i = 0; i < nodes.length; i++) {
       final node = nodes[i];
-      final span = node.length + _sepAfterNode(i);
-      if (offset <= current + span) {
-        final offInNode = (offset - current).clamp(0, node.length);
+      final nodeLength = node.length;
+      final separator = _sepAfterNode(i);
+      final span = nodeLength + separator;
+
+      // CORREÇÃO: A condição foi alterada de `offset <= current + span`
+      // para `offset <= current + nodeLength`. Isso garante que um offset
+      // na posição do separador seja corretamente mapeado para o início do
+      // próximo nó, em vez do final do nó atual.
+      if (offset <= current + nodeLength) {
+        final offInNode = (offset - current).clamp(0, nodeLength);
         return Position(i, offInNode);
       }
       current += span;
@@ -65,9 +72,10 @@ class DocumentModel {
       Delta delta,
       {Position? beforeCaret}) {
     final newNodes = List<BlockNode>.from(nodes);
-  final inverse = Delta();
-  var currentOffset = 0;
-  var inverseCursor = 0; // Tracks how much of the original document the inverse has retained
+    final inverse = Delta();
+    var currentOffset = 0;
+    var inverseCursor =
+        0; // Tracks how much of the original document the inverse has retained
     Position? calculatedNewCaret = beforeCaret;
 
     for (final op in delta.ops) {
@@ -305,7 +313,8 @@ class DocumentModel {
     var current = 0;
     for (var i = 0; i < nodes.length; i++) {
       final node = nodes[i];
-      final span = node.length + ((node is ParagraphNode && i < nodes.length - 1) ? 1 : 0);
+      final span = node.length +
+          ((node is ParagraphNode && i < nodes.length - 1) ? 1 : 0);
       final end = current + node.length;
       if (docOffset >= current && docOffset <= end) {
         return _NodeLocation(i, docOffset - current);

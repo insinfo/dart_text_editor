@@ -1,5 +1,5 @@
-import 'package:canvas_text_editor/core/position.dart';
-import 'package:canvas_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/position.dart';
+import 'package:dart_text_editor/core/selection.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -30,7 +30,8 @@ void main() {
       expect(selection1.hashCode, selection2.hashCode);
     });
 
-    test('equality and hash code work correctly for non-collapsed selections', () {
+    test('equality and hash code work correctly for non-collapsed selections',
+        () {
       final start1 = Position(0, 0);
       final end1 = Position(0, 5);
       final start2 = Position(0, 0);

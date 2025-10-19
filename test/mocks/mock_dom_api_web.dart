@@ -1,4 +1,4 @@
-import 'package:canvas_text_editor/util/dom_api.dart';
+import 'package:dart_text_editor/util/dom_api.dart';
 import 'manual_dom_api_mocks.dart';
 
 // Mock implementations for the factory methods in dom_api_web.dart
@@ -7,4 +7,5 @@ import 'manual_dom_api_mocks.dart';
 WindowApi createWindow() => MockWindowApi();
 DocumentApi createDocument() => MockDocumentApi();
 DivElementApi createDivElement() => MockDivElementApi();
-CanvasElementApi createCanvasElement({dynamic canvas}) => MockCanvasElementApi();
+CanvasElementApi createCanvasElement({dynamic canvas}) =>
+    MockCanvasElementApi();

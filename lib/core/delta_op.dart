@@ -4,9 +4,16 @@ class DeltaOp {
   final int? retain;
   final Map<String, dynamic>? attributes;
 
-  DeltaOp.insert(this.insert, {this.attributes}) : delete = null, retain = null;
-  DeltaOp.delete(this.delete) : insert = null, retain = null, attributes = null;
-  DeltaOp.retain(this.retain, {this.attributes}) : insert = null, delete = null;
+  DeltaOp.insert(this.insert, {this.attributes})
+      : delete = null,
+        retain = null;
+  DeltaOp.delete(this.delete)
+      : insert = null,
+        retain = null,
+        attributes = null;
+  DeltaOp.retain(this.retain, {this.attributes})
+      : insert = null,
+        delete = null;
 
   @override
   String toString() {

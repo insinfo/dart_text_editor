@@ -1,10 +1,10 @@
-import 'package:canvas_text_editor/core/document_model.dart';
-import 'package:canvas_text_editor/core/paragraph_node.dart';
-import 'package:canvas_text_editor/core/text_run.dart';
-import 'package:canvas_text_editor/core/inline_attributes.dart';
-import 'package:canvas_text_editor/layout/page_constraints.dart';
-import 'package:canvas_text_editor/layout/paginator.dart';
-import 'package:canvas_text_editor/render/measure_cache.dart';
+import 'package:dart_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
+import 'package:dart_text_editor/core/text_run.dart';
+import 'package:dart_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/layout/page_constraints.dart';
+import 'package:dart_text_editor/layout/paginator.dart';
+import 'package:dart_text_editor/render/measure_cache.dart';
 import 'package:test/test.dart';
 import '../mocks/mock_text_measurer.dart';
 

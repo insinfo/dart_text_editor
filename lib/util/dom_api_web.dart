@@ -1,6 +1,9 @@
+// Arquivo: lib/util/dom_api_web.dart (COMPLETO E CORRIGIDO)
+// ignore_for_file: unnecessary_cast
+
 import 'dart:async';
 import 'dart:html' as html;
-import 'package:canvas_text_editor/util/dom_api.dart';
+import 'package:dart_text_editor/util/dom_api.dart';
 
 // --------------------------------------
 // Implementações “default” (navegador)
@@ -20,10 +23,10 @@ class _DefaultWindowApi implements WindowApi {
 
   @override
   Stream<EventApi> get onResize =>
-      html.window.onResize.map(_DefaultEventApi.new);
+      html.window.onResize.map((event) => _DefaultEventApi(event));
   @override
   Stream<EventApi> get onScroll =>
-      html.window.onScroll.map(_DefaultEventApi.new);
+      html.window.onScroll.map((event) => _DefaultEventApi(event));
 }
 
 class _DefaultDocumentApi implements DocumentApi {
@@ -39,7 +42,6 @@ class _DefaultBodyElementApi implements BodyElementApi {
     } else if (node is _DefaultCanvasElementApi) {
       html.document.body!.append(node.canvasElement);
     }
-    // Não tente dar append em `NodeApi` diretamente (evita erro: NodeApi ≠ html.Node).
   }
 }
 
@@ -60,10 +62,7 @@ class _DefaultDivElementApi implements DivElementApi {
     } else if (node is _DefaultCanvasElementApi) {
       divElement.append(node.canvasElement);
     }
-    // idem: não tente anexar `NodeApi` cru.
-  } 
-  
-  // NOVO
+  }
 
   @override
   int? get tabIndex => divElement.tabIndex;
@@ -76,23 +75,31 @@ class _DefaultDivElementApi implements DivElementApi {
   // Teclado → EventApi
   @override
   Stream<EventApi> get onKeyDown =>
-      divElement.onKeyDown.map(_DefaultEventApi.new);
+      divElement.onKeyDown.map((event) => _DefaultEventApi(event));
   @override
-  Stream<EventApi> get onKeyUp => divElement.onKeyUp.map(_DefaultEventApi.new);
+  Stream<EventApi> get onKeyUp =>
+      divElement.onKeyUp.map((event) => _DefaultEventApi(event));
 
   // Mouse → MouseEventApi
+  // CORREÇÃO: Adiciona o tipo explícito (html.MouseEvent event) ao lambda.
   @override
-  Stream<MouseEventApi> get onMouseDown =>
-      divElement.onMouseDown.map(_DefaultMouseEventApi.new);
+  Stream<MouseEventApi> get onMouseDown => divElement.onMouseDown
+      .map((html.MouseEvent event) => _DefaultMouseEventApi(event));
   @override
-  Stream<MouseEventApi> get onMouseMove =>
-      divElement.onMouseMove.map(_DefaultMouseEventApi.new);
+  Stream<MouseEventApi> get onMouseMove => divElement.onMouseMove
+      .map((html.MouseEvent event) => _DefaultMouseEventApi(event));
   @override
-  Stream<MouseEventApi> get onMouseUp =>
-      divElement.onMouseUp.map(_DefaultMouseEventApi.new);
+  Stream<MouseEventApi> get onMouseUp => divElement.onMouseUp
+      .map((html.MouseEvent event) => _DefaultMouseEventApi(event));
   @override
-  Stream<MouseEventApi> get onClick =>
-      divElement.onClick.map(_DefaultMouseEventApi.new);
+  Stream<MouseEventApi> get onClick => divElement.onClick
+      .map((html.MouseEvent event) => _DefaultMouseEventApi(event));
+
+  // CORREÇÃO: O evento de onDoubleClick em dart:html é um Stream<Event>,
+  // então fazemos o cast para MouseEvent, que é o que ele será na prática.
+  @override
+  Stream<MouseEventApi> get onDoubleClick => divElement.onDoubleClick
+      .map((event) => _DefaultMouseEventApi(event as html.MouseEvent));
 }
 
 class _DefaultCssStyleDeclarationApi implements CssStyleDeclarationApi {
@@ -146,8 +153,12 @@ class _DefaultCanvasElementApi implements CanvasElementApi {
       _DefaultRectangleApi(canvasElement.getBoundingClientRect());
 
   @override
-  Stream<MouseEventApi> get onClick =>
-      canvasElement.onClick.map(_DefaultMouseEventApi.new);
+  Stream<MouseEventApi> get onClick => canvasElement.onClick
+      .map((html.MouseEvent event) => _DefaultMouseEventApi(event));
+
+  @override
+  Stream<MouseEventApi> get onDoubleClick => canvasElement.onDoubleClick
+      .map((event) => _DefaultMouseEventApi(event as html.MouseEvent));
 }
 
 class _DefaultCanvasRenderingContext2DApi
@@ -218,42 +229,34 @@ class _DefaultEventApi implements EventApi {
   _DefaultEventApi(this._event);
 
   @override
-  String get key => _event is html.KeyboardEvent ? (_event).key ?? '' : '';
+  String get key => (_event is html.KeyboardEvent)
+      ? (_event as html.KeyboardEvent).key ?? ''
+      : '';
 
   @override
-  bool get shiftKey => _event is html.KeyboardEvent ? (_event).shiftKey : false;
+  bool get shiftKey => (_event is html.MouseEvent)
+      ? (_event as html.MouseEvent).shiftKey
+      : false;
 
   @override
-  bool get ctrlKey => _event is html.KeyboardEvent ? (_event).ctrlKey : false;
+  bool get ctrlKey =>
+      (_event is html.MouseEvent) ? (_event as html.MouseEvent).ctrlKey : false;
 
   @override
-  bool get metaKey => _event is html.KeyboardEvent ? (_event).metaKey : false;
+  bool get metaKey =>
+      (_event is html.MouseEvent) ? (_event as html.MouseEvent).metaKey : false;
 
   @override
   void preventDefault() => _event.preventDefault();
 }
 
-class _DefaultMouseEventApi implements MouseEventApi {
-  final html.MouseEvent _mouseEvent;
-  _DefaultMouseEventApi(this._mouseEvent);
+class _DefaultMouseEventApi extends _DefaultEventApi implements MouseEventApi {
+  _DefaultMouseEventApi(html.MouseEvent super.event);
+
+  html.MouseEvent get _mouseEvent => _event as html.MouseEvent;
 
   @override
   PointApi get client => _DefaultPointApi(_mouseEvent.client);
-
-  @override
-  String get key => '';
-
-  @override
-  bool get shiftKey => _mouseEvent.shiftKey;
-
-  @override
-  bool get ctrlKey => _mouseEvent.ctrlKey;
-
-  @override
-  bool get metaKey => _mouseEvent.metaKey;
-
-  @override
-  void preventDefault() => _mouseEvent.preventDefault();
 }
 
 class _DefaultPointApi implements PointApi {

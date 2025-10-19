@@ -1,4 +1,3 @@
-
 class WidowOrphanControl {
   final int minLinesAtTop;
   final int minLinesAtBottom;

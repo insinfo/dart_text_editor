@@ -1,7 +1,8 @@
-import 'package:canvas_text_editor/core/document_model.dart';
-import 'package:canvas_text_editor/core/inline_attributes.dart';
-import 'package:canvas_text_editor/core/selection.dart';
-import 'package:canvas_text_editor/core/transaction.dart';
+//C:\MyDartProjects\canvas_text_editor\lib\core\editor_state.dart
+import 'package:dart_text_editor/core/document_model.dart';
+import 'package:dart_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/core/selection.dart';
+import 'package:dart_text_editor/core/transaction.dart';
 
 class EditorState {
   final DocumentModel document;

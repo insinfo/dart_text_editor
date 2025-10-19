@@ -1,6 +1,6 @@
 class Position {
-  final int node;    // índice do BlockNode no DocumentModel
-  final int offset;  // número de chars dentro do bloco (parágrafo)
+  final int node; // índice do BlockNode no DocumentModel
+  final int offset; // número de chars dentro do bloco (parágrafo)
 
   const Position(this.node, this.offset);
 
@@ -11,8 +11,10 @@ class Position {
     }
     return offset < other.offset;
   }
+
   @override
-  bool operator ==(Object other) => other is Position && other.node == node && other.offset == offset;
+  bool operator ==(Object other) =>
+      other is Position && other.node == node && other.offset == offset;
   @override
   int get hashCode => Object.hash(node, offset);
 }

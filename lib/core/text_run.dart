@@ -1,4 +1,4 @@
-import 'package:canvas_text_editor/core/inline_attributes.dart';
+import 'package:dart_text_editor/core/inline_attributes.dart';
 
 class TextRun {
   final int textOffset;

@@ -1,9 +1,9 @@
-import 'package:canvas_text_editor/core/delta.dart';
-import 'package:canvas_text_editor/core/editor_command.dart';
-import 'package:canvas_text_editor/core/editor_state.dart';
-import 'package:canvas_text_editor/core/paragraph_attributes.dart';
-import 'package:canvas_text_editor/core/paragraph_node.dart';
-import 'package:canvas_text_editor/core/transaction.dart';
+import 'package:dart_text_editor/core/delta.dart';
+import 'package:dart_text_editor/core/editor_command.dart';
+import 'package:dart_text_editor/core/editor_state.dart';
+import 'package:dart_text_editor/core/paragraph_attributes.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
+import 'package:dart_text_editor/core/transaction.dart';
 
 class ApplyParagraphAttributesCommand extends EditorCommand {
   final ParagraphAttributes attributes;
@@ -23,7 +23,8 @@ class ApplyParagraphAttributesCommand extends EditorCommand {
 
     for (var i = 0; i < document.nodes.length; i++) {
       final node = document.nodes[i];
-      final lengthWithSeparator = node.length + (i < document.nodes.length - 1 ? 1 : 0);
+      final lengthWithSeparator =
+          node.length + (i < document.nodes.length - 1 ? 1 : 0);
 
       if (i >= startNodeIndex && i <= endNodeIndex && node is ParagraphNode) {
         delta.retain(lengthWithSeparator, attributes: attributes.toMap());
@@ -32,10 +33,10 @@ class ApplyParagraphAttributesCommand extends EditorCommand {
       }
       totalRetained += lengthWithSeparator;
     }
-    
+
     final docLength = document.length;
     if (totalRetained < docLength) {
-        delta.retain(docLength - totalRetained);
+      delta.retain(docLength - totalRetained);
     }
 
     return Transaction.compat(delta, state.selection, state.selection);

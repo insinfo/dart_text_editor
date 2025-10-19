@@ -1,4 +1,4 @@
-import 'package:canvas_text_editor/core/delta_op.dart';
+import 'package:dart_text_editor/core/delta_op.dart';
 
 class Delta {
   final List<DeltaOp> ops;

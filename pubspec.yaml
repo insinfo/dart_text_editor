@@ -1,5 +1,5 @@
-name: canvas_text_editor
-description: An absolute bare-bones web app.
+name: dart_text_editor
+description: An dart Text Editor web app based in HTML Canvas.
 version: 1.0.0
 # repository: https://github.com/my_org/my_repo
 

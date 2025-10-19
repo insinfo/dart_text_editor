@@ -1,4 +1,3 @@
-
 class Rectangle {
   final double left;
   final double top;
