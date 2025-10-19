@@ -92,11 +92,12 @@ class Editor {
 
     if (command is ApplyInlineAttributesCommand &&
         state.selection.isCollapsed) {
-      final newTypingAttributes =
-          state.typingAttributes.merge(command.attributes);
-      state = state.copyWith(typingAttributes: newTypingAttributes);
-      return;
+      var newTypingAttributes = state.typingAttributes;
+    for (final attr in command.attributes.values) {
+      newTypingAttributes = newTypingAttributes.copyWith(attr);
     }
+    state = state.copyWith(typingAttributes: newTypingAttributes);
+    return;
 
     if (command is UndoCommand) {
       undo();
