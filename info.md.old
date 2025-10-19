@@ -1,0 +1,442 @@
+Roteiro de implementação do editor de Texto WEB igual o Google Docs que usa Canvas
+vou ser direto e pragmático. Abaixo está:
+lei todo o codigo fonte e verifique o que esta faltando
+sempre atualize este arquivo para dizer o que ja foi feito e concluido
+não use webdev serve, use dart analize e webdev build para saber se esta compilando em sem erros de sintaxe alem disso prefira a criação e execução de testes unitarios e integração para ver se esta tudo ok
+
+
+Raio-X (lacunas reais no que existe hoje)
+
+Semântica de posição/seleção (bug estrutural)
+
+Hoje Position(line, column) é tratada em duas semânticas diferentes:
+
+Em DocumentModel.getOffset(...) o line é interpretado como índice de nó (parágrafo).
+
+Em Paginator.getPositionFromScreen(...) o line volta a ser índice de linha de layout acumulado.
+
+Resultado: cliques e digitação podem escrever no parágrafo errado ou no offset errado (especialmente após quebra em várias linhas/páginas).
+
+DocumentModel.apply(Delta) e getOffset(...)
+
+Só entende ParagraphNode e assume fluxo linear simples de runs, sem “quebra de bloco”.
+
+Inserção/remoção não faz merge/split de runs por estilo; quebra de linha ('\n') não cria novo parágrafo.
+
+getOffset soma comprimentos de runs mas não contempla outros blocos (listas, tabelas) — inevitável dar erro quando esses entrarem.
+
+ParagraphLayoutResult
+
+Tipagem frouxa: final List<dynamic> lines; deveria ser List<LayoutLine>. Isso atrapalha o type-safety em todo o pipeline (pintura, caret, hit-test).
+
+Paginação e margens
+
+Em Paginator.paginate(...) você usa PageConstraints.a4 (certo), mas compara altura da página com constraints.height - (constraints.marginTop + constraints.marginBottom) — o que subtrai margem duas vezes (já veio descontada na width/height do conteúdo).
+
+yPos inicia em marginTop (ok), mas o cálculo de “estouro” precisa considerar apenas constraints.height (área útil).
+
+Pintura vs medição
+
+CanvasPagePainter.paint(...) recalcula layout do parágrafo com constraints globais (ok), mas ignora block.width/height (em páginas futuras com colunas, isso quebra).
+
+Overlay x DPI
+
+_overlay usa style.width/height = '${canvas.width}px' (em pixels do dispositivo), mas posiciona pelo offsetLeft/top (em CSS pixels). Em displays HiDPI isso desalinha caret x click.
+
+Métricas e interfaces
+
+Existem duas classes Metrics (em layout/metrics.dart e em render/metrics.dart) com assinaturas diferentes. Alto risco de colisão/import errado.
+
+TextMeasurerInterface.measure retorna dynamic, mas MeasureCache.measure assume Metrics. Falta tipo forte no contrato.
+
+Input e comandos
+
+RedoCommand está UnimplementedError.
+
+Falta comandos de Backspace, Delete, Enter (nova linha), SetSelection, MoveCaret (setas, Home/End).
+
+Falta tratar IME/composition (teclados internacionais).
+
+Layouter de parágrafo
+
+Não aplica ainda ParagraphAttributes (alinhamento, recuo da primeira linha, lineSpacing, spacingBefore/After, justify).
+
+Hit-test por caractere usa comparação x in [x0,x1); o ideal é comparar por “meio do glifo” para evitar snap errado.
+
+Infra não conectada
+
+VirtualizationStrategy e RasterCache existem, mas não estão integrados ao fluxo de scroll/repintura.
+
+PdfExporter é TODO.
+
+Correções imediatas (para destravar o MVP)
+
+(A) Unificar tipagem de layout
+
+// paragraph_layout_result.dart
+import 'package:canvas_text_editor/layout/layout_line.dart';
+
+class ParagraphLayoutResult {
+  final List<LayoutLine> lines;
+  final double height;
+
+  ParagraphLayoutResult(this.lines, this.height);
+}
+
+
+(B) Consertar “dupla subtração” de margem
+
+// paginator.dart (dentro do for de nós)
+final contentHeight = constraints.height; // já é área útil
+if (currentPageHeight + blockHeight > contentHeight) {
+  createPage();
+}
+
+
+(C) Overlay em CSS pixels (compatível com HiDPI)
+
+void _setupOverlay() {
+  final rect = canvas.getBoundingClientRect();
+  _overlay
+    ..contentEditable = 'true'
+    ..style.position = 'absolute'
+    ..style.left   = '${rect.left + window.scrollX}px'
+    ..style.top    = '${rect.top  + window.scrollY}px'
+    ..style.width  = '${rect.width}px'
+    ..style.height = '${rect.height}px'
+    ..style.opacity = '0'
+    ..style.zIndex = '1';
+  document.body!.append(_overlay);
+}
+
+
+(D) Contrato de medição forte e remoção de duplicata de Metrics
+
+Padronize UMA Metrics (a de render já serve).
+
+Apague/renomeie layout/metrics.dart (ou renomeie para Size2D se precisar).
+
+Fortaleça a interface:
+
+// render/text_measurer_interface.dart
+import 'metrics.dart';
+import 'package:canvas_text_editor/core/inline_attributes.dart';
+
+abstract class TextMeasurerInterface {
+  Metrics measure(String text, InlineAttributes attributes);
+}
+
+
+(E) Semântica de posição (quebra do bug estrutural)
+
+Defina explicitamente Position(nodeIndex, charOffsetInNode).
+
+class Position {
+  final int node;    // índice do BlockNode no DocumentModel
+  final int offset;  // número de chars dentro do bloco (parágrafo)
+  Position(this.node, this.offset);
+}
+
+
+Ajuste:
+
+Selection.collapsed(Position p) (já existe).
+
+DocumentModel.getOffset(Position p) vira soma dos comprimentos de todos os nós anteriores + p.offset.
+
+Paginator.screenPos(Position p) precisa converter offset → (lineIndex, column) dentro do mesmo parágrafo (soma dos runs da ParagraphLayoutResult até alcançar offset).
+
+Paginator.getPositionFromScreen(x,y) retorna Position(nodeIndex, offsetNoParagrafo) (não (linha,coluna) global). Use o hit-test por linha e acumule comprimento dos runs anteriores no parágrafo para produzir offset.
+
+[✅ PRONTO] (F) Pequenas robustezes no hit-test
+
+No laço por caractere, avalie o meio do avanço:
+
+if (x < xOffset + charWidth * 0.5) return column + i;
+xOffset += charWidth;
+
+
+[✅ PRONTO] (G) CanvasPagePainter.paint(...) usando largura do bloco
+
+Quando pedir layout, passe um PageConstraints “local” só com width = block.width e height = block.height (margens não importam dentro do bloco).
+
+Roteiro de implementação (Caminhar → Andar → Correr)
+Fase 1 — Caminhar (Hello, World confiável)
+
+Objetivo: um parágrafo longo, word-wrap correto, A4, clique posiciona caret corretamente.
+
+Tarefas
+
+[✅ PRONTO] PageConstraints.a4(...) e pintura de guias de margem.
+
+[✅ PRONTO] Consertar ParagraphLayoutResult tipado (List<LayoutLine>).
+
+[✅ PRONTO] Remover dupla subtração de margens na paginação.
+
+[✅ PRONTO] Sincronizar overlay (CSS px) com canvas (HiDPI).
+
+[✅ PRONTO] Unificar Metrics e tipar TextMeasurerInterface.
+
+[✅ PRONTO] Redefinir Position → (nodeIndex, offsetInNode) e adaptar:
+
+DocumentModel.getOffset
+
+Paginator.screenPos
+
+Paginator.getPositionFromScreen
+
+InsertTextCommand (usar offsetInNode ao aplicar o delta).
+
+[✅ PRONTO] DocumentModel.apply(Delta)—garantir inserção e deleção dentro de um único parágrafo com merge/split simples de runs (quando atributos iguais).
+
+Critério de pronto
+
+Clique posiciona o caret exatamente onde o usuário clicou (mesmo em HiDPI).
+
+Digitar adiciona caracteres no parágrafo certo; backspace/delete simples funcionam (um parágrafo).
+
+Fase 2 — Andar (edição básica sólida)
+
+Objetivo: caret piscando, setas, Enter (novo parágrafo), seleção com mouse arrastando.
+
+Tarefas
+
+Comandos:
+
+BackspaceCommand, DeleteCommand, EnterCommand (cria novo ParagraphNode e divide runs).
+
+SetSelectionCommand, MoveCaretCommand (setas/Home/End/PgUp/PgDown com clamp).
+
+RedoCommand implementado.
+
+EditorState:
+
+Empilhar Transaction em undoStack/redoStack (limpar redoStack em qualquer operação nova).
+
+ParagraphLayouter:
+
+Aplicar ParagraphAttributes: lineSpacing, indentFirstLine, spacingBefore/After, align (left/center/right/justify).
+
+Pintura:
+
+paintCursor já pisca ✅; adicione seleção (retângulos atrás do texto).
+
+Mouse:
+
+mousedown/mousemove/mouseup no overlay → seleção por arrasto (atualizando Selection).
+
+IME:
+
+Tratar compositionstart/update/end no overlay e gerar InsertTextCommand só no compositionend.
+
+Critério de pronto
+
+Digitação, navegação e seleção funcionam de forma previsível (incluindo novas linhas e undo/redo).
+
+Fase 3 — Correr (conteúdo variado + performance)
+
+Objetivo: múltiplos blocos, listas, tabelas v1, virtualização e PDF básico.
+
+Tarefas
+
+Paginação por bloco (já há PositionedBlock) com viúvas/órfãs (WidowOrphanControl):
+
+Manter minLinesAtTop/Bottom nos parágrafos.
+
+Listas:
+
+ListBlockNode contendo itens (cada item → parágrafo interno).
+
+Pintar bullet/numbering com listBulletIndentPt.
+
+Tabelas v1:
+
+TableLayouter medindo conteúdo (usa ParagraphLayouter nas células).
+
+Altura da linha = maior altura das células; quebra de linha de célula entre páginas (sem rowSpan no MVP).
+
+Virtualização & cache:
+
+Conectar ViewportController + VirtualizationStrategy para calcular páginas visíveis.
+
+RasterCache: render offscreen por página e blit para o canvas principal.
+
+Exportação PDF v1:
+
+Reutilizar Paginator + CanvasPagePainter (gerar páginas em offscreen e rasterizar para PDF), ou desenhar vetorialmente via uma camada de “painter” abstrata.
+
+Critério de pronto
+
+Documento com parágrafos, listas e tabelas paginado sem “saltos”, uso de memória estável e exporta PDF básico.
+
+Métricas (alvos) e riscos
+
+Desempenho
+
+Repintar 1 página alterada ≤ 8 ms (texto puro).
+
+Repaginação local por parágrafo ≤ 50 ms.
+
+Memória para 300 páginas texto/listas/tabelas simples: ≤ 60 MB com RasterCache de 2–3 páginas.
+
+Riscos
+
+Semântica de posição (principal): resolvida ao migrar para (nodeIndex, offsetInNode).
+
+Grapheme clusters/emoji: quando necessário, troque split('') por package:characters.
+
+Medição de fontes: congele famílias (ex.: Noto) + cache agressivo.
+
+Tabelas: quebra entre páginas é a parte mais sensível — validar cedo com casos reais.
+
+Concluído (atualizado)
+
+Modelo/Infra
+
+BlockKind, BlockNode, ParagraphNode, InlineAttributes, ParagraphAttributes prontos.
+
+Delta/DeltaOp, Transaction, Operation e EditorCommand definidos.
+
+EditorState já possui undoStack/redoStack (ainda não usados).
+
+DeleteNodesOp implementado.
+
+Layout/Paginação/Pintura
+
+LayoutLine, ParagraphLayouter v1 com word-wrap por palavras e fallback por caractere.
+
+PageConstraints.a4(...) pronto.
+
+Paginator v1 com PageLayout e PositionedBlock.
+
+CanvasPagePainter pinta texto, sublinhado/strike, background de run e cursor piscante (Timer ✅) + guias de margem.
+
+MeasureCache integrado a TextMeasurer; TextMeasurer já considera DPR.
+
+Interação
+
+DOM overlay invisível e focável já criado; clique posiciona caret (via Paginator.getPositionFromScreen).
+
+InsertTextCommand básico e aplicação de Delta em Editor.execute(...).
+
+Infra extra (esqueleto)
+
+VirtualizationStrategy, ViewportController e RasterCache existem (a integrar).
+
+PdfExporter definido como TODO.
+
+RedoCommand ainda não implementado.
+
+1) Modelo de texto e edição de alta performance
+
+Estrutura de edição por parágrafo: trocar String simples por estrutura eficiente (rope/piece table/gap buffer) para evitar cópias O(n) em inserções no meio de runs grandes.
+
+Normalização de runs: regras determinísticas de merge/split de runs (inclusive ao colar), com invariantes (p.ex. “nunca ter runs adjacentes com atributos idênticos”).
+
+Quebra de linha “correta”: UAX #14 (line breaking) e grapheme clusters UAX #29 para mapeamento índice↔caret (você já apontou package:characters, mantenha no radar).
+
+Bidi (UAX #9): textos mistos LTR/RTL; caret/seleção precisam respeitar níveis bidi.
+
+Tabs e tab stops, recuos por nível e régua (indispensável em editor de escritório).
+
+2) Layout tipográfico
+
+Justificado de verdade: variação de espaçamento (word/letter spacing) com controle de “rivers” e limites de estiramento/contração.
+
+Hifenização: padrões (pt-BR) via dicionários (WASM) e fallback de qualidade.
+
+Font fallback e font loading: invalidação de medidas quando webfont carrega/atualiza; cache com versioning por família/peso/estilo.
+
+Zoom (25%–500%) com reflow estável e caret fiel.
+
+Seções, colunas, quebras de seção, cabeçalho/rodapé, numeração de páginas e sumário (ToC) autogerado.
+
+3) Blocos avançados
+
+Listas: níveis, reinício de numeração, estilos (1., a., i.), indent/outdent, colagem preservando níveis.
+
+Tabelas: edição (inserir/excluir linhas/colunas, mesclar, alinhar célula), bordas e estilos; quebra de linha de linha/célula entre páginas; (v2) rowSpan/colSpan.
+
+Imagens: inline vs ancoradas; (v2) floating com exclusion de texto.
+
+Notas de rodapé/fim e referências cruzadas (paginação sensível).
+
+4) Interação e a11y
+
+Clipboard completo: HTML/RTF ↔ modelo interno, sanitização (XSS) no overlay.
+
+IME avançado (CJK), composição por parágrafo com preedit visível.
+
+Acessibilidade: espelho DOM para leitores de tela (o canvas puro é invisível); ARIA + navegação por teclado.
+
+Mobile/touch: handles de seleção, zoom por gesto, teclado virtual.
+
+5)  histórico e estabilidade
+
+Undo/redo com batching, compactação de histórico e coalescing (digitação contínua vira uma operação).
+
+Autosave com debounce e snapshots incrementais.
+
+
+
+6) Exportação/Importação fiel
+
+PDF vetorial (não raster): mesma engine de layout gerando paths/text (sem jaggies), cabeçalho/rodapé, hiperlinks.
+
+DOCX (import/export) mapeando estilos, listas, tabelas e imagens; ao menos um subconjunto estável.
+
+HTML/ODT (opcional), e impressão nativa com qualidade (CSS Paged Media é insuficiente sozinho; mantenha sua engine).
+
+7) Performance de produto
+
+Relayout parcial real por parágrafo/bloco e por página; cache de line breaks por versão de fonte/zoom.
+
+Scheduler: repaginação em worker (OffscreenCanvas/MessageChannel) para não travar o UI thread.
+
+RasterCache + janela deslizante com pre-render de ±1 página; throttling por scroll velocity.
+
+
+
+Como encaixar isso no seu roteiro atual
+
+Seu “Caminhar → Andar → Correr” está ótimo para estabilizar o núcleo. Sugiro adicionar uma Fase 4 e 5:
+
+Fase 4 — “Voar” (editor de escritório completo)
+
+DOCX import/export (subset), cabeçalho/rodapé, numeração de páginas.
+
+Listas completas (níveis/restart), tabelas editáveis (sem span primeiro).
+
+PDF vetorial fiel usando o mesmo paginator (camada Painter abstrata com backends Canvas2D/PDF).
+
+Zoom + ToC + pesquisa/replace incremental.
+
+Fase 5 — “Escala”
+
+Undo/redo com batching + compactação.
+
+Autosave + snapshots incrementais.
+
+Colaboração (OT/CRDT) com cursores remotos.
+
+A11y (DOM espelho) + mobile/touch.
+
+Worker + OffscreenCanvas; métricas e budget de latência (p.ex. p95 < 16 ms por interação).
+
+Ajustes finos nos critérios de pronto (KPIs)
+
+Interação p95: caret move/tecla → < 16 ms (uma frame de 60 Hz).
+
+Repaginação local (parágrafo médio ~1–2k chars): < 8 ms.
+
+Scroll p95 com 300 págs: sem jank (Long Task < 50 ms).
+
+Memória com 300 págs texto/lista/tabela simples + cache 3 págs: ≤ 60–80 MB.
+
+Render: cache hit de medida > 90%; pre-render mantém próxima página pronta ≥ 80% do tempo.
+
+
+
+Ainda não completo: para ser “tipo Google Docs”, inclua as frentes acima (modelo de texto eficiente, tipografia avançada, blocos ricos, colagem/IME/a11y, colaboração, DOCX/PDF vetorial e telemetria).
+
+Caminho prático: implemente as correções imediatas (A–G), consolide Fase 2 e 3, e já projete interfaces (Positions estáveis, Painter abstrato, Layout por bloco) pensando nas Fases 4–5. Isso evita refactors caros depois.

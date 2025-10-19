@@ -1,0 +1,126 @@
+# Roteiro de implementação do Editor de Texto Rico de auto desenpenho WEB (Canvas) semelhante ao Google Docs — **estado atual + próximos passos**
+
+> **Princípios operacionais**
+> - Nunca adicione dependecias no projeto que dependa de codegen
+> - Este documento deve ser **mantido atualizado** conforme o código evolui.
+> - para referencia de codigo com ideias de implementação acesse este link: 
+https://hufe.club/canvas-editor/
+https://github.com/insinfo/canvas-editor
+https://github.com/AppFlowy-IO/appflowy-editor
+https://github.com/grassator/canvas-text-editor-tutorial
+
+# Editores de texto/código em Canvas (open source)
+
+| Projeto | Link | Descrição (super curta) | Paginado | PDF |
+|---|---|---|---|---|
+| ONLYOFFICE DocumentServer | https://github.com/ONLYOFFICE/DocumentServer | Editor tipo Word em Canvas, completo e colaborativo | ✅ | ✅ |
+| canvas-editor (Hufe921) | https://github.com/Hufe921/canvas-editor | WYSIWYG em Canvas/SVG com páginas, margens, cabeç./rodapé | ✅ | ✅ |
+| Carota | https://github.com/danielearwicker/carota | Rich text em Canvas, minimalista e antigo | ❌ | ❌* |
+| RichTextJS | https://github.com/markusmoenig/RichTextJS | Protótipo de rich text em Canvas, recursos básicos | ❌ | ❌ |
+| Mozilla Bespin (arquivado) | https://github.com/mozilla/bespinserver | Editor de **código** via Canvas, histórico | ❌ | ❌ |
+| Canvas Text Editor (tutorial) | https://github.com/grassator/canvas-text-editor-tutorial | Texto **plano** em Canvas (didático) | ❌ | ❌ |
+
+\* No Carota dá para exportar indiretamente convertendo o canvas em imagem/PDF por conta própria, mas não há suporte nativo.
+
+
+> - Não usar `webdev serve`. Validar sempre com: `dart analyze`, `dart test`, `webdev build`.
+> - Priorizar TDD: testes unitários p/ núcleo (modelo/delta), layout (quebra de linhas/paginação) e interação (hit‑test/seleção).
+> - Este arquivo acompanha o código. Ao concluir um item abaixo, marque como ✅ e mova observações para a seção “Concluído”.
+
+---
+
+## 1) O que você reportou agora (bugs visíveis)
+- ✅ **Seleção pinta a linha inteira** em vez do trecho: ocorre porque a pintura usa o *span.run.text* inteiro quando há interseção (`_isRunSelected(...)`) e não recorta pelo intervalo exato da seleção.
+- ✅ **Texto e seleção “vazam” para fora do retângulo da página**: falta *clip* do canvas na área útil da página; a paginação já segmenta, mas a pintura não recorta.
+- ✅ **SHIFT + setas não estende a seleção**: `_overlay.onKeyDown` não trata `event.shiftKey` para as setas; `MoveCaretCommand` não tem modo *extend*.
+- ✅ **Delete contínuo “trava” (engasga)** após algumas frases: a cada tecla é feito `paginate + layout` completo e o *undo stack* cresce indefinidamente, sem *batching* nem limite. Além disso, `DeleteCommand` refaz inversos com `getText` (custo alto) a cada caractere. (Batching e limite de undo stack implementados. Otimização de layout e `getText` para inversos ainda pendente.)
+- ✅ **Digitação e clique para substituir 1 char estão OK** (base funcional).
+
+---
+
+## 2) O que já foi feito (desde o último roteiro)
+- ✅ **Semântica unificada de posição**: `Position(node, offset)` em toda a pipeline; `Selection` com `==/hashCode` e `isCollapsed` confiável.
+- ✅ **Paginação com origem por página**: `PageLayout.yOrigin` e `ctx.translate(0, page.yOrigin)`. `Paginator.getPositionFromScreen` subtrai `yOrigin` → clique/hit‑test corrigidos entre páginas.
+- ✅ **Seleção por arrasto** (overlay transparente) funcionando: `mousedown` ancora, `mousemove` atualiza, `mouseup` finaliza.
+- ✅ **Enter/Backspace/Delete** básicos; **Backspace no início de parágrafo** faz *merge* com o anterior; **Delete no fim do doc** vira *no‑op*.
+- ✅ **Layout por `LayoutSpan` com offsets absolutos** (`startInNode/endInNode`) — base para seleção precisa e hit‑test robusto.
+- ✅ **Undo/Redo via `Delta`** e registros corrigidos para o record `{document,inverse,newCaret}` retornado de `DocumentModel.apply`.
+
+---
+
+## 3) Correções imediatas (para os bugs relatados)
+
+### 3.1 Pintar somente o trecho selecionado do *span* (não a linha inteira) — **crítico**
+- ✅ **Problema**: hoje, se o *span* intersecta a seleção, o código pinta **o span todo**.
+- ✅ **Correção**: calcular `selStart = clamp(selectionStartOffset, spanStart, spanEnd)`, `selEnd = clamp(selectionEndOffset, spanStart, spanEnd)` e medir **apenas** `spanText[0..selStart-spanStart]` e `spanText[0..selEnd-spanStart]` para obter `x1` e `x2`. Pintar `fillRect(x1, y, x2-x1, lineHeight)`.
+- ✅ **Efeito**: seleção precisa, inclusive quando começa/termina no meio da palavra.
+
+### 3.2 *Clip* da área útil da página — **crítico**
+- ✅ Antes de desenhar blocos, aplicar:
+  ```dart
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(constraints.marginLeft, constraints.marginTop, constraints.width, constraints.height);
+  ctx.clip();
+  // ... desenha blocos e seleção ...
+  ctx.restore();
+  ```
+- ✅ Evita vazamento de texto/realce para fora do retângulo A4.
+
+### 3.3 SHIFT + setas para estender seleção — **alto**
+- ✅ **Editor**: se `event.shiftKey` e seta, chamar `MoveCaretCommand(direction, paginator, extend:true)`.
+- ✅ **MoveCaretCommand**: aceitar `extend` e um `anchor` (posição inicial de onde a seleção começou). Se `extend==true`, retornar `Selection(anchor, newPos)`; se falso, `Selection.collapsed(newPos)`.
+- ✅ **Editor**: manter `_selectionAnchor` quando começa extensão (primeira tecla com Shift).
+
+### 3.4 Delete não travar — **alto**
+- ✅ **Undo stack com limite** (ex.: 200 itens) e **batching** durante *key repeat* (agrupar deletes de caracteres contíguos num único delta até *key-up* ou pausa > 150ms).
+- ✅ Evitar recomputar layout completo em alta frequência: *throttle* repaints para ~60Hz; mover `layouter` caro para a próxima *animation frame*.
+- ✅ Checar `DocumentModel.apply(delete)` para evitar `getText` de grandes fatias a cada char (quando possível, gravar apenas o char removido do `_findLocation` em vez de buscar por intervalo maior).
+
+### 3.5 Guardas adicionais
+- ✅ `DeleteCommand` ao fim do parágrafo deve **mergir** com o próximo (se existir) ao remover o `\r\n`; caso esteja no último, `no-op`.
+- ✅ Nos comandos, a nova posição deve vir do `apply(..., beforeCaret)` → já implementado.
+
+---
+
+## 4) Melhorias estruturais (curto prazo)
+- ✅ **Seleção com teclado por palavra/parágrafo**: `Ctrl+Shift+Left/Right` (palavra), `Shift+Home/End` (linha), `Ctrl+A` (tudo) implementados.
+- ✅ **Pintura mais rápida**: cache de medidas por fonte/tamanho + invalidar por *font epoch* e DPR; *clip* por página (feito no item 3.2). (Cache, DPR e clip implementados; invalidação por font epoch implementada)
+- ✅ **Undo/Redo “com batch”**: agrupar digitação contínua e deletar contínuo.
+- ✅ **Clamping da navegação vertical**: `MoveCaretCommand.up/down` manter “coluna alvo” (x desejado) para subidas/descidas sucessivas.
+
+---
+
+## 5) Testes que faltam (acrescentar no `test/`)
+- ❌ **Seleção**:
+  - clique no meio de *span* → `Selection.collapsed` correto; (Pendente)
+  - arrasto de meia-palavra a meia‑palavra em **duas linhas**; (Pendente)
+  - SHIFT+setas: extensão respeita âncora; *collapsed* volta ao desativar Shift. (Pendente)
+- ❌ **Paginação**: hit‑test cruzando `yOrigin` de páginas. (Pendente)
+- ❌ **Delete/Backspace**: *merge* entre parágrafos e *no-op* nos limites. (Pendente)
+- ❌ **Undo batching**: digitar 20 chars → 1 transação; manter memória estável. (Pendente)
+- ❌ **Clip**: seleção nunca ultrapassa o retângulo útil. (Pendente)
+
+---
+
+## 6) Próximos passos sugeridos (curto‑médio)
+1. ❌ **Home/End/Ctrl+Home/End** e seleção estendida correspondente.
+2. ❌ **Hifenização pt‑BR** (biblioteca de padrões TeX) e *justify* real (v2).
+3. ❌ **Virtualização** ligada ao scroll com `RasterCache` (pré‑render da página seguinte).
+
+---
+
+## 7) Concluído (histórico resumido)
+- Unificação de `Position/Selection` e record de `apply` corrigido.
+- Paginação com `yOrigin` e hit‑test relativo à página.
+- `LayoutSpan` com offsets absolutos.
+- Comandos básicos, arrasto para selecionar, e pintura de cursor.
+- **Patches sugeridos (trechos prontos para colar)**: Todos os patches sugeridos na versão anterior deste roteiro foram implementados no código.
+- **Itens de verificação para deixar “verde” no `dart analyze`/build**:
+  - Remover duplicatas (`ParagraphLayoutResult`, `Color.toCss`).
+  - Shift+setas integrado (Editor + `MoveCaretCommand` com `extend`).
+  - Clip por página aplicado.
+  - Seleção parcial por *span* implementada.
+  - Guardas de `Delete/Backspace` (fim/início de parágrafo + *merge*).
+  - Limite do `undoStack` e (ideal) *batching* simples.
+  - ❌ Testes cobrindo seleção, paginação, merges e clip. (Testes básicos de seleção e paginação existem, mas os cenários específicos listados em "Testes que faltam" ainda estão pendentes.)
