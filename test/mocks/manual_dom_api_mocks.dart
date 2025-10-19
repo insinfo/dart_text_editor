@@ -59,7 +59,7 @@ class MockCanvasRenderingContext2DApi implements CanvasRenderingContext2DApi {
   @override
   void strokeRect(num x, num y, num w, num h) {}
   @override
-  double measureTextWidth(String text) => text.length * 8.0; // Largura de caractere mockada
+  double measureTextWidth(String text) => textext.length * 100.0; // largura de caractere mockada
 }
 
 class MockDivElementApi implements DivElementApi {
