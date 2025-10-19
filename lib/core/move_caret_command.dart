@@ -33,6 +33,21 @@ class MoveCaretCommand implements EditorCommand {
     final sel = state.selection;
     final caret = sel.end;
     Position newPos = caret;
+      // Collapse selection to start or end if not extending and selection is not collapsed
+  if (!extend && !sel.isCollapsed) {
+    switch (direction) {
+      case CaretMovement.left:
+      case CaretMovement.up:
+      case CaretMovement.wordLeft:
+      case CaretMovement.lineStart:
+        // Collapse to start of selection
+        return Transaction.emptyDelta(sel, sel.collapse(true));
+      default:
+        // Collapse to end of selection
+        return Transaction.emptyDelta(sel, sel.collapse());
+    }
+  }
+
 
     switch (direction) {
       case CaretMovement.left:
