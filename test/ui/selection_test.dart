@@ -84,14 +84,17 @@ const indexHtml = '''
 class _ServeArgs {
   final String dir;
   final SendPort sendPort;
-  _ServeArgs(this.dir, this.sendPort);
+  final int? port;
+  _ServeArgs(this.dir, this.sendPort, {this.port});
 }
 
 void _serverIsolate(_ServeArgs args) async {
   final handler = createStaticHandler(args.dir, defaultDocument: 'index.html');
-  final server = await io.serve(handler, '127.0.0.1', 0);
+  final server = await io.serve(handler, '127.0.0.1', args.port ?? 0);
+  print('_serverIsolate ${server.address.host}:${server.port}');
   final control = ReceivePort();
-  args.sendPort.send({'port': server.port, 'control': control.sendPort});
+  args.sendPort
+      .send({'port': args.port ?? server.port, 'control': control.sendPort});
   await for (final msg in control) {
     if (msg == 'close') {
       await server.close(force: true);
@@ -131,10 +134,11 @@ void main() {
 
       final rp = ReceivePort();
       await Isolate.spawn(
-          _serverIsolate, _ServeArgs(buildDir.path, rp.sendPort));
+          _serverIsolate, _ServeArgs(buildDir.path, rp.sendPort, port: 5000));
       final init = await rp.first as Map;
       srvCtl = init['control'] as SendPort;
-      baseUrl = 'http://127.0.0.1:${init['port']}';
+      baseUrl = 'http://127.0.0.1:5000';
+      print('_serverIsolate baseUrl $baseUrl');
 
       browser = await puppeteer.launch(headless: true);
       await browser!.defaultBrowserContext
@@ -155,7 +159,8 @@ void main() {
     tearDown(() => page?.close());
 
     Future<Map<String, dynamic>> getSnapshot() async {
-      await Future.delayed(const Duration(milliseconds: 50)); // Delay para sincronia
+      await Future.delayed(
+          const Duration(milliseconds: 50)); // Delay para sincronia
       final result = await page!.evaluate<Map>('() => window.__getSnapshot()');
       return Map<String, dynamic>.from(result);
     }
@@ -164,12 +169,12 @@ void main() {
       final canvasBox = await page!.evaluate<Map>(
           '() => document.querySelector("canvas").getBoundingClientRect().toJSON()');
 
-      // Ajuste para a posição aproximada de "bold" (linha 1, cerca de 7-8 caracteres)
-      final x = (canvasBox['x'] as num) + 56.7 + (7.5 * 7); // Aproximadamente "bold"
-      final y = (canvasBox['y'] as num) + 40; // Linha 1 (ajustada com base no layout)
+      final x = (canvasBox['x'] as num) + 56.7 + (7.5 * 7);
+      final y = (canvasBox['y'] as num) + 40;
 
       await page!.mouse.click(Point(x, y), clickCount: 2);
-      await Future.delayed(const Duration(milliseconds: 200)); // Espera processamento
+      await Future.delayed(
+          const Duration(milliseconds: 200)); // Espera processamento
 
       final selectedText =
           await page!.evaluate<String>('() => window.__getSelectedText()');
@@ -177,7 +182,8 @@ void main() {
     });
 
     test('Ctrl+C should copy text without deleting it', () async {
-      await page!.evaluate("window.__selectRange(0, 7, 13)"); // Seleciona "world!"
+      await page!
+          .evaluate("window.__selectRange(0, 7, 13)"); // Seleciona "world!"
 
       final beforeText =
           await page!.evaluate<String>('() => window.__getDocText(0)');
@@ -226,7 +232,8 @@ void main() {
       final x = (canvasBox['x'] as num) + 56.7 + 10; // Aproximadamente na "H"
       final y = (canvasBox['y'] as num) + 10; // Linha 0
       await page!.mouse.click(Point(x, y), clickCount: 2);
-      await Future.delayed(const Duration(milliseconds: 200)); // Espera processamento
+      await Future.delayed(
+          const Duration(milliseconds: 200)); // Espera processamento
 
       final selectedText =
           await page!.evaluate<String>('() => window.__getSelectedText()');
@@ -237,10 +244,14 @@ void main() {
       final canvasBox = await page!.evaluate<Map>(
           '() => document.querySelector("canvas").getBoundingClientRect().toJSON()');
       // Ajuste para a posição de "a" em "Canvas" (aproximadamente offset 50-60)
-      final x = (canvasBox['x'] as num) + 56.7 + 60; // Aproximadamente "a" em "Canvas"
-      final y = (canvasBox['y'] as num) + 30; // Linha 0, ajustada para altura aproximada
+      final x = (canvasBox['x'] as num) +
+          56.7 +
+          60; // Aproximadamente "a" em "Canvas"
+      final y = (canvasBox['y'] as num) +
+          30; // Linha 0, ajustada para altura aproximada
       await page!.mouse.click(Point(x, y), clickCount: 2);
-      await Future.delayed(const Duration(milliseconds: 200)); // Espera processamento
+      await Future.delayed(
+          const Duration(milliseconds: 200)); // Espera processamento
 
       final selectedText =
           await page!.evaluate<String>('() => window.__getSelectedText()');
