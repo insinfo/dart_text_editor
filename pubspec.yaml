@@ -16,7 +16,13 @@ dev_dependencies:
   lints: ^5.1.1
   test: ^1.26.3
 
-dependency_overrides:
+  puppeteer: ^3.19.0
+  shelf: any
+  shelf_static: any
+  path: any
+
+
+#dependency_overrides:
 #quebra-compatibilidade entre o analyzer 7.x e o mockito 5.4.5 
 #(o gerador de mocks do mockito usa tipos internos do analyzer 
 #como InterfaceElementImpl; a partir do analyzer 7.4.0 isso quebrou).

@@ -3,3 +3,7 @@
 .dart_tool/
 
 codigo_mesclado.dart.txt
+
+.local-chrome/
+
+build_test/

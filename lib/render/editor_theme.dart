@@ -10,6 +10,7 @@ class EditorTheme {
   final double marginTopPt;
   final double marginRightPt;
   final double listBulletIndentPt;
+  final Color cursorColor;
 
   EditorTheme(
       {this.tableBorderWidthPt = 0.75,
@@ -17,6 +18,7 @@ class EditorTheme {
       this.spacingBefore = 0.0,
       this.marginTopPt = 0.0,
       this.marginRightPt = 0.0,
+      this.cursorColor = const Color(0xFF000000), // Default black cursor
       this.listBulletIndentPt = 18.0,
       this.fontColor = const Color(0xFF000000),
       this.selectionColor = const Color(0xFFADD8E6)});

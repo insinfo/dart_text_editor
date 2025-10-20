@@ -1,10 +1,18 @@
-//C:\MyDartProjects\canvas_text_editor\lib\util\dom_api.dart
-// Arquivo: lib/util/dom_api.dart (COMPLETO E CORRIGIDO)
+// Arquivo: C:\MyDartProjects\canvas_text_editor\lib\util\dom_api.dart
 import 'dart:async';
+
+// --- INÍCIO DA CORREÇÃO ---
+// Esta é a interface base para todos os elementos do DOM.
+// Adicionada a assinatura do método `remove()` que estava faltando.
+abstract class ElementApi extends NodeApi {
+  CssStyleDeclarationApi get style;
+  void remove();
+}
+// --- FIM DA CORREÇÃO ---
 
 abstract class NodeApi {}
 
-abstract class CanvasElementApi extends NodeApi {
+abstract class CanvasElementApi extends ElementApi {
   int get width;
   set width(int value);
   int get height;
@@ -12,7 +20,6 @@ abstract class CanvasElementApi extends NodeApi {
   CanvasRenderingContext2DApi get context2D;
   RectangleApi getBoundingClientRect();
   Stream<MouseEventApi> get onClick;
-  // LINHA ADICIONADA:
   Stream<MouseEventApi> get onDoubleClick;
 }
 
@@ -39,15 +46,18 @@ abstract class CanvasRenderingContext2DApi {
   double measureTextWidth(String text);
 }
 
-abstract class DivElementApi extends NodeApi {
+// --- INÍCIO DA CORREÇÃO ---
+// DivElementApi agora herda de ElementApi para ter acesso a `remove()` e `style`.
+abstract class DivElementApi extends ElementApi {
+// --- FIM DA CORREÇÃO ---
   set contentEditable(String value);
-  CssStyleDeclarationApi get style;
-
+  String get innerText;
+  set innerText(String value);
   int? get tabIndex;
   set tabIndex(int? value);
-
   void append(NodeApi node);
   void focus();
+  void select();
   Stream<EventApi> get onKeyDown;
   Stream<EventApi> get onKeyUp;
   Stream<MouseEventApi> get onMouseDown;
@@ -57,6 +67,16 @@ abstract class DivElementApi extends NodeApi {
   Stream<MouseEventApi> get onDoubleClick;
 }
 
+// --- INÍCIO DA CORREÇÃO ---
+// Adicionada a interface para TextAreaElement.
+abstract class TextAreaElementApi extends ElementApi {
+  String get value;
+  set value(String value);
+  void select();
+}
+// --- FIM DA CORREÇÃO ---
+
+
 abstract class CssStyleDeclarationApi {
   set position(String value);
   set left(String value);
@@ -65,7 +85,10 @@ abstract class CssStyleDeclarationApi {
   set height(String value);
   set opacity(String value);
   set zIndex(String value);
-
+  // --- INÍCIO DA CORREÇÃO ---
+  // Adicionada a propriedade `pointerEvents` que estava faltando.
+  set pointerEvents(String value);
+  // --- FIM DA CORREÇÃO ---
   void setProperty(String name, String value);
 }
 
@@ -76,10 +99,20 @@ abstract class RectangleApi {
   double get height;
 }
 
+abstract class ClipboardApi {
+  Future<String?> readText();
+  Future<void> writeText(String text);
+}
+
+abstract class NavigatorApi {
+  ClipboardApi get clipboard;
+}
+
 abstract class WindowApi {
   double get devicePixelRatio;
   double get scrollX;
   double get scrollY;
+  NavigatorApi get navigator;
   void requestAnimationFrame(void Function(num highResTime) callback);
   Stream<EventApi> get onResize;
   Stream<EventApi> get onScroll;
@@ -87,6 +120,11 @@ abstract class WindowApi {
 
 abstract class DocumentApi {
   BodyElementApi? get body;
+  bool execCommand(String commandId);
+  // --- INÍCIO DA CORREÇÃO ---
+  // Adicionado o método `createElement` que estava faltando.
+  ElementApi createElement(String tagName);
+  // --- FIM DA CORREÇÃO ---
 }
 
 abstract class BodyElementApi {
@@ -103,6 +141,7 @@ abstract class EventApi {
 
 abstract class MouseEventApi extends EventApi {
   PointApi get client;
+   int get button;
 }
 
 abstract class PointApi {

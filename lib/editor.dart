@@ -1,4 +1,4 @@
-// Arquivo: C:\MyDartProjects\canvas_text_editor\lib\editor.dart
+//Arquivo: C:\MyDartProjects\canvas_text_editor\lib\editor.dart
 import 'dart:async';
 import 'package:dart_text_editor/core/apply_inline_attributes_command.dart';
 import 'package:dart_text_editor/core/document_model.dart';
@@ -9,6 +9,7 @@ import 'package:dart_text_editor/core/enter_command.dart';
 import 'package:dart_text_editor/core/backspace_command.dart';
 import 'package:dart_text_editor/core/delete_command.dart';
 import 'package:dart_text_editor/core/move_caret_command.dart';
+import 'package:dart_text_editor/core/paragraph_node.dart';
 import 'package:dart_text_editor/core/undo_command.dart';
 import 'package:dart_text_editor/core/redo_command.dart';
 import 'package:dart_text_editor/core/position.dart';
@@ -21,6 +22,7 @@ import 'package:dart_text_editor/render/canvas_page_painter.dart';
 import 'package:dart_text_editor/render/editor_theme.dart';
 import 'package:dart_text_editor/render/measure_cache.dart';
 import 'package:dart_text_editor/render/text_measurer.dart';
+import 'package:dart_text_editor/services/clipboard_service.dart';
 import 'package:dart_text_editor/util/dom_api.dart';
 import 'package:dart_text_editor/util/dom_api_stub.dart'
     if (dart.library.html) 'package:dart_text_editor/util/dom_api_web.dart'
@@ -49,6 +51,7 @@ class Editor {
   Selection? _batchSelectionBefore;
 
   bool _animationFrameRequested = false;
+  late final ClipboardService clipboardService;
 
   Editor(this.canvas, DocumentModel document,
       {EditorTheme? theme,
@@ -69,19 +72,38 @@ class Editor {
         _document = documentApi ?? dom_api.createDocument() {
     this.measureCache =
         measureCache ?? MeasureCache(TextMeasurer(canvas.context2D));
-    this.paginator =
-        paginator ?? Paginator(this.measureCache); // Initialize paginator first
-    painter = CanvasPagePainter(this.theme, this.measureCache, _requestPaint);
+    this.paginator = paginator ?? Paginator(this.measureCache);
+    painter = CanvasPagePainter(this.theme, this.measureCache, _requestPaint, this.paginator, _window);
+
+    clipboardService = ClipboardService(
+      window: _window,
+      document: _document,
+    );
     _setupOverlay();
     _listenToEvents();
     this.paginator.paginate(
         state.document, PageConstraints.a4(zoomLevel: state.zoomLevel));
+
+    _resizeCanvas();
     _requestPaint();
   }
 
   void dispose() {
     painter?.dispose();
     _batchTimer?.cancel();
+  }
+
+  void _resizeCanvas() {
+    final dpr = _window.devicePixelRatio;
+    final rect = canvas.getBoundingClientRect();
+
+    // Garante que o tamanho CSS do canvas esteja correto (pixels CSS)
+    canvas.style.width = '${rect.width}px';
+    canvas.style.height = '${rect.height}px';
+
+    // Tamanho real do bitmap em pixels do dispositivo
+    canvas.width = (rect.width * dpr).round();
+    canvas.height = (rect.height * dpr).round();
   }
 
   void execute(EditorCommand command) {
@@ -139,15 +161,12 @@ class Editor {
     final newDocument = applyResult.document;
     final inverse = applyResult.inverse;
 
-    // Transaction(delta, inverseDelta, before, after)
     final inverseTransaction = Transaction(
         transaction.delta, inverse, transaction.before, transaction.after);
-
     const maxUndo = 200;
     final newUndoStack = List<Transaction>.from(state.undoStack)
       ..add(inverseTransaction);
     if (newUndoStack.length > maxUndo) newUndoStack.removeAt(0);
-
     state = state.copyWith(
       document: newDocument,
       selection: applyResult.newCaret != null
@@ -165,8 +184,6 @@ class Editor {
 
     final newUndoStack = List<Transaction>.from(state.undoStack);
     final transactionToUndo = newUndoStack.removeLast();
-    // If this transaction contains subInverses (batched per-delta inverses),
-    // apply them in order to revert the original sequence of operations.
     DocumentModel newDocument = state.document;
     if (transactionToUndo.subInverses != null &&
         transactionToUndo.subInverses!.isNotEmpty) {
@@ -183,7 +200,6 @@ class Editor {
 
     final newRedoStack = List<Transaction>.from(state.redoStack)
       ..add(transactionToUndo);
-
     state = state.copyWith(
       document: newDocument,
       selection: transactionToUndo.before,
@@ -199,8 +215,6 @@ class Editor {
 
     final newRedoStack = List<Transaction>.from(state.redoStack);
     final transactionToRedo = newRedoStack.removeLast();
-    // If the transaction was a batched transaction with subDeltas, replay
-    // each sub-delta in order; otherwise apply the single delta.
     DocumentModel newDocument = state.document;
     if (transactionToRedo.subDeltas != null &&
         transactionToRedo.subDeltas!.isNotEmpty) {
@@ -217,7 +231,6 @@ class Editor {
 
     final newUndoStack = List<Transaction>.from(state.undoStack)
       ..add(transactionToRedo);
-
     state = state.copyWith(
       document: newDocument,
       selection: transactionToRedo.after,
@@ -244,32 +257,38 @@ class Editor {
   }
 
   void _doPaint() {
-    _syncOverlay(); // <— NOVO: caso o layout/scroll tenha mudado
     final dpr = _window.devicePixelRatio;
-    final rect = canvas.getBoundingClientRect();
-    canvas.width = (rect.width * dpr).round();
-    canvas.height = (rect.height * dpr).round();
+
     ctx.save();
+    // Escala: tudo que desenhamos usa coordenadas em CSS px
     ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, canvas.width.toDouble(), canvas.height.toDouble());
+
+    // Limpa na unidade "CSS px" (canvas.width/height são em device px)
+    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
     final pageConstraints =
         PageConstraints.a4(marginAllPt: 56.7, zoomLevel: state.zoomLevel);
 
     final pages = paginator.paginate(state.document, pageConstraints);
-
     double yOffset = 0;
     const pageGap = 20.0;
 
     for (final page in pages) {
       ctx.save();
       ctx.translate(0, yOffset);
+
+      // Pinta a página + conteúdo (o painter deve respeitar margins do pageConstraints)
       painter?.paint(ctx, page, pageConstraints, state.selection);
+
+      // Cursor (coordenadas de tela em CSS px)
       final cursorPosition = paginator.screenPos(state.selection.end);
       if (cursorPosition != null && state.selection.isCollapsed) {
         painter?.paintCursor(ctx, cursorPosition);
       }
+
       ctx.restore();
+
+      // Avança para a próxima página (altura de conteúdo + margens + gap)
       yOffset += pageConstraints.height +
           pageConstraints.marginTop +
           pageConstraints.marginBottom +
@@ -289,7 +308,6 @@ class Editor {
 
     final transaction = command.exec(state);
     _currentBatchDeltas!.add(transaction.delta);
-
     final applyResult = state.document
         .apply(transaction.delta, beforeCaret: state.selection.start);
     state = state.copyWith(
@@ -301,8 +319,6 @@ class Editor {
     _requestPaint();
 
     _batchTimer?.cancel();
-    // Use a 200ms batching window to match the test expectations and create
-    // a responsive undo grouping for quick typing/delete sequences.
     _batchTimer = Timer(const Duration(milliseconds: 200), _finalizeBatch);
   }
 
@@ -314,7 +330,6 @@ class Editor {
       return;
     }
 
-    // Compose the batched delta (in chronological order)
     final batchedDelta = Delta();
     for (final delta in _currentBatchDeltas!) {
       batchedDelta.compose(delta);
@@ -323,11 +338,6 @@ class Editor {
     final beforeSelection = _batchSelectionBefore!;
     final afterSelection = state.selection;
 
-    // Apply each delta sequentially to a working copy of the original
-    // document and collect per-delta inverses. Then compose those
-    // inverses in reverse order to form the overall inverse for the
-    // entire batched operation. This correctly accounts for shifting
-    // offsets between deltas.
     var workingDoc = _batchOriginalDocument!;
     final perDeltaInverses = <Delta>[];
     for (final delta in _currentBatchDeltas!) {
@@ -335,37 +345,20 @@ class Editor {
       perDeltaInverses.add(res.inverse);
       workingDoc = res.document;
     }
-    // try {
-    //   for (var i = 0; i < perDeltaInverses.length; i++) {
-    //     print(
-    //         '[DEBUG perDeltaInverse $i] ops=${perDeltaInverses[i].ops.map((o) => o.toString()).toList()} length=${perDeltaInverses[i].length}');
-    //   }
-    // } catch (_) {}
 
     final batchedInverse = Delta();
     for (var i = perDeltaInverses.length - 1; i >= 0; i--) {
       batchedInverse.compose(perDeltaInverses[i]);
     }
-    // try {
-    //   print(
-    //       '[DEBUG _finalizeBatch] batchedDelta.ops=${batchedDelta.ops.map((o) => o.toString()).toList()}');
-    //   print(
-    //       '[DEBUG _finalizeBatch] batchedInverse.ops=${batchedInverse.ops.map((o) => o.toString()).toList()}');
-    // } catch (_) {}
 
     final inverseTransaction = Transaction(
         batchedDelta, batchedInverse, beforeSelection, afterSelection,
         subDeltas: List.from(_currentBatchDeltas!),
         subInverses: perDeltaInverses.reversed.toList());
-
     final newUndoStack = List<Transaction>.from(state.undoStack)
       ..add(inverseTransaction);
 
     state = state.copyWith(undoStack: newUndoStack, redoStack: []);
-    // try {
-    //   print(
-    //       '[DEBUG _finalizeBatch] document after batch=${state.document.nodes.map((n) => n.runtimeType.toString()).join('|')}');
-    // } catch (_) {}
 
     _isBatching = false;
     _batchTimer?.cancel();
@@ -387,29 +380,37 @@ class Editor {
     _syncOverlay();
     _overlay
       ..contentEditable = 'true'
-      ..tabIndex = 0 // <— NOVO: garante foco programático
+      ..tabIndex = 0
       ..style.position = 'absolute'
       ..style.opacity = '0'
+      ..style.pointerEvents = 'auto' //Garante que a overlay capture eventos
       ..style.zIndex = '1'
       ..style.setProperty('outline', 'none');
     _document.body!.append(_overlay);
-
-    // foca já no início para digitar imediatamente
     _overlay.focus();
   }
 
   void _listenToEvents() {
+    int clampIdx(int v, int min, int max) =>
+        v < min ? min : (v > max ? max : v);
+
     _window.onResize.listen((_) {
+      print('[RESIZE]');
       _syncOverlay();
+      _resizeCanvas();
       _requestPaint();
     });
+
     _window.onScroll.listen((_) {
+      print('[SCROLL]');
       _syncOverlay();
       _requestPaint();
     });
 
     _overlay.onKeyDown.listen((event) {
       bool handled = true;
+      print(
+          '[KEY] key=${event.key} ctrl=${event.ctrlKey} meta=${event.metaKey} shift=${event.shiftKey}');
       if (event.key == 'Enter') {
         execute(EnterCommand());
       } else if (event.key == 'Backspace') {
@@ -447,30 +448,52 @@ class Editor {
           execute(UndoCommand());
         } else if (event.key == 'y' || (event.shiftKey && event.key == 'z')) {
           execute(RedoCommand());
+        } else if (event.key == 'c') {
+          _handleCopy();
+          handled = true;
+        } else if (event.key == 'v') {
+          _handlePaste();
+          handled = true;
         } else {
           handled = false;
         }
       } else {
         handled = false;
       }
-
       if (handled) {
         event.preventDefault();
       }
     });
 
     _overlay.onMouseDown.listen((event) {
-      _overlay.focus(); // <— NOVO
+      if (event.button != 0) return;
+      _overlay.focus();
       final rect = canvas.getBoundingClientRect();
-      final x = (event.client.x - rect.left);
-      final y = (event.client.y - rect.top);
+      final zoom = state.zoomLevel;
+      final x = (event.client.x - rect.left) / zoom;
+      final y = (event.client.y - rect.top) / zoom;
+      print(
+          '[MOUSEDOWN] client=(${event.client.x},${event.client.y}) rect=(${rect.left},${rect.top}) zoom=$zoom logical=($x,$y)');
       final position =
           paginator.getPositionFromScreen(x.toDouble(), y.toDouble());
+      print('[MOUSEDOWN] pos node=${position?.node} off=${position?.offset}');
       if (position != null) {
+        if (position.node >= 0 && position.node < state.document.nodes.length) {
+          final n = state.document.nodes[position.node];
+          if (n is ParagraphNode) {
+            final t = n.text;
+            final o = clampIdx(position.offset, 0, t.length);
+            final ch = (o >= 0 && o < t.length) ? t[o] : '';
+            final s = clampIdx(o - 10, 0, t.length);
+            final e = clampIdx(o + 10, 0, t.length);
+            final around = t.substring(s, e);
+            print('[MOUSEDOWN] char="$ch" around="$around"');
+          }
+        }
+        paginator.desiredX = null;
         _dragAnchorPosition = position;
         _isDragging = true;
-        paginator.keyboardAnchor =
-            position; // Âncora para o arrasto com mouse
+        paginator.keyboardAnchor = position;
         state = state.copyWith(selection: Selection.collapsed(position));
         _requestPaint();
       }
@@ -480,10 +503,13 @@ class Editor {
     _overlay.onMouseMove.listen((event) {
       if (_isDragging && _dragAnchorPosition != null) {
         final rect = canvas.getBoundingClientRect();
-        final x = (event.client.x - rect.left);
-        final y = (event.client.y - rect.top);
+        final zoom = state.zoomLevel;
+        final x = (event.client.x - rect.left) / zoom;
+        final y = (event.client.y - rect.top) / zoom;
         final currentPosition =
             paginator.getPositionFromScreen(x.toDouble(), y.toDouble());
+        print(
+            '[MOUSEMOVE] logical=($x,$y) anchor=${_dragAnchorPosition?.offset} -> curr=${currentPosition?.offset}');
         if (currentPosition != null) {
           state = state.copyWith(
               selection: Selection(_dragAnchorPosition!, currentPosition));
@@ -493,15 +519,36 @@ class Editor {
     });
 
     _overlay.onMouseUp.listen((event) {
+      print('[MOUSEUP]');
       _isDragging = false;
       _dragAnchorPosition = null;
     });
 
     _overlay.onDoubleClick.listen((event) {
-      final currentSelection = state.selection;
-      if (currentSelection.isCollapsed) {
+      final rect = canvas.getBoundingClientRect();
+      final zoom = state.zoomLevel;
+      final x = (event.client.x - rect.left) / zoom;
+      final y = (event.client.y - rect.top) / zoom;
+      print(
+          '[DOUBLECLICK] client=(${event.client.x},${event.client.y}) rect=(${rect.left},${rect.top}) zoom=$zoom logical=($x,$y)');
+      final position =
+          paginator.getPositionFromScreen(x.toDouble(), y.toDouble());
+      print('[DOUBLECLICK] pos node=${position?.node} off=${position?.offset}');
+      if (position != null) {
+        final selectionAtClick = Selection.collapsed(position);
         final newSelection =
-            currentSelection.expandToWordBoundaries(state.document);
+            selectionAtClick.expandToWordBoundaries(state.document);
+        if (newSelection.start.node >= 0 &&
+            newSelection.start.node < state.document.nodes.length) {
+          final node = state.document.nodes[newSelection.start.node];
+          if (node is ParagraphNode) {
+            final text = node.text;
+            final s = clampIdx(newSelection.start.offset, 0, text.length);
+            final e = clampIdx(newSelection.end.offset, 0, text.length);
+            final selected = s < e ? text.substring(s, e) : '';
+            print('[DOUBLECLICK] selection "$selected" [$s,$e]');
+          }
+        }
         state = state.copyWith(selection: newSelection);
         _requestPaint();
       }
@@ -510,5 +557,16 @@ class Editor {
     canvas.onClick.listen((event) {
       _overlay.focus();
     });
+  }
+
+  void _handleCopy() {
+    clipboardService.copy(state);
+  }
+
+  void _handlePaste() async {
+    final text = await clipboardService.paste();
+    if (text != null && text.isNotEmpty) {
+      execute(InsertTextCommand(text));
+    }
   }
 }

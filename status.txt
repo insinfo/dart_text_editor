@@ -1,0 +1,18 @@
+o que esta funcionando agora, o precionar delete esta apagando o texto corretamente, 
+o backspace tambem, o Enter quebra a linha corretamente, seta para direita e esquerda esta navegando corretamente, 
+Digitação na posição do cursos caret esta funcionando bem, o cursor esta sendo renderizado corretamente, 
+precionar a tecla espaço coloca espaço corretamente, ao ir digitando testo quando chega no final da linha cai para linha seguinte corretamente, 
+o que não esta funcionado é Seleção de nehum tipo, com mouse, Seleção precionando Shift + tecla de seta, click duplo para seleção de palavra stc, tecla home para ir para o inicio da linha não funciona, um bug ficar precionar a tecla Espaço para ir empurando o texto quando chega no final da pagina o texto não quebra para linha de baixo ele na verdade some (clip) verifique o que causa este bugs e implemente testes para cobrir estas coisas para evitar regreções e corigir estes bugs mostre arquivos completos corrigidos  rtProjects\canvas_text_editor> 
+
+
+
+
+como corrigir estes bugs ao dar click duplo em cima da palavra "Hello" esta selecionando a palavra "background", Shift + Seta não marca seleção , e Ctrl+C não funciona e Ctrl+v não funciona , emquanto vai precionando a tecla espaço o texto vai sendo empurado corretamente e quando chega no final cai para segundo linha corretamente mais depois que cai para segunda linha mesmo mantendo a tecla spaço precionando não acontece nada mesmo se parar de precionar e precionar denovo,  que esta funcionando agora, o precionar delete esta apagando o texto corretamente, o backspace tambem, o Enter quebra a linha corretamente, seta para direita e esquerda esta navegando corretamente, o cursor esta sendo renderizado corretamente, 
+precionar a tecla espaço coloca espaço corretamente,ao ir digitando testo quando chega no final da linha cai para linha seguinte corretamente, a navegação pelo teclado via teclas de seta para direita e esquerda esta funcionando mais a tecla para cima e para baixa não asta navegando corretamente, a tecla Home e End funciona na primeira linha mais nas outras linhas não navega corretamente, a seleção de click duplo so funciona na ultima palavra do texto "paragraph." , a seleção de baixo para cima funciona mais é inconcistente depende muito de onde esta o cursor e de onde clicar na parte inferior bem abaixo da ultima palavra
+
+o dar click duplo na palavra "word" esta selecionando a palavra "background" como se foce um bug de cordenada, desfazer via Ctrl + z e  refazer com Ctrl + y, não funciona, parece que não esta concidindo a cordenada do mouse com a area selecionada, selecionar o texto e digitar Ctrl + C elimina todo texto e fica so "c", se selecionar todo o texto e clicar com o botão direto do mouse perde a seleção e não da para copiar (Não set se a solução sera criar um menu customizado ou não), manter a tecla de espaço precionada faz com que o cursor caret saia da folha de papel (Clip?) o cursor deveria cair para linha de baixo, a navegação por seta up e down so funciona se tiver no meio do texto se tiver no inicio ou fim da linha o comportamento é iregular, acho que tem que ter mais testes automatizados para detectar isso, sera que daria para usar o pacote https://pub.dev/packages/puppeteer  e implementar uns testes de UI para pegar estes problemas ou teria que implementar chamadas via FFI para controlar o mouse e teclado do windows para executar testes automatizados PS C:\MyDartProjects\canvas_text_editor> dart analyze
+Analyzing canvas_text_editor...
+No issues found!
+PS C:\MyDartProjects\canvas_text_editor> dart test  -j 1 --chain-stack-traces
+00:06 +54: All tests passed!
+PS C:\MyDartProjects\canvas_text_editor> 

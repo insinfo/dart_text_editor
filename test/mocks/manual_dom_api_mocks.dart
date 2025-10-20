@@ -1,30 +1,42 @@
-// Arquivo: test/mocks/manual_dom_api_mocks.dart (COMPLETO E CORRIGIDO)
+// Arquivo: C:\MyDartProjects\canvas_text_editor\test\mocks\manual_dom_api_mocks.dart
 import 'dart:async';
 import 'package:dart_text_editor/util/dom_api.dart';
 
-// --- MOCKS DE ELEMENTOS E CONTEXTO ---
-
-// Mock CanvasElement and CanvasRenderingContext2D
-
-
-class MockCanvasElementApi implements CanvasElementApi {
+class MockClipboardApi implements ClipboardApi {
+  String _clipboardContent = '';
   @override
-  int width = 800;
+  Future<String?> readText() async => _clipboardContent;
   @override
-  int height = 600;
+  Future<void> writeText(String text) async => _clipboardContent = text;
+}
+
+class MockNavigatorApi implements NavigatorApi {
   @override
-  final CanvasRenderingContext2DApi context2D =
-      MockCanvasRenderingContext2DApi();
+  final ClipboardApi clipboard = MockClipboardApi();
+}
+
+// CORREÇÃO: Adicionada classe base para compartilhar implementações.
+abstract class MockElementApi implements ElementApi {
+  @override
+  final CssStyleDeclarationApi style = MockCssStyleDeclarationApi();
+  @override
+  void remove() {}
+}
+
+class MockCanvasElementApi extends MockElementApi implements CanvasElementApi {
+  @override
+  int width;
+  @override
+  int height;
+  @override
+  final CanvasRenderingContext2DApi context2D = MockCanvasRenderingContext2DApi();
 
   MockCanvasElementApi({this.width = 800, this.height = 600});
 
   @override
   RectangleApi getBoundingClientRect() => MockRectangleApi();
-
   @override
   Stream<MouseEventApi> get onClick => Stream<MouseEventApi>.empty();
-
-  // CORREÇÃO: Implementação ausente adicionada.
   @override
   Stream<MouseEventApi> get onDoubleClick => Stream<MouseEventApi>.empty();
 }
@@ -40,7 +52,6 @@ class MockCanvasRenderingContext2DApi implements CanvasRenderingContext2DApi {
   num lineWidth = 1;
   @override
   String textBaseline = 'alphabetic';
-
   @override
   void scale(num x, num y) {}
   @override
@@ -69,26 +80,18 @@ class MockCanvasRenderingContext2DApi implements CanvasRenderingContext2DApi {
   void translate(num x, num y) {}
   @override
   void strokeRect(num x, num y, num w, num h) {}
-  // Largura de caractere mockada
   @override
   double measureTextWidth(String text) => text.length * 8.0;
 }
 
-class MockDivElementApi implements DivElementApi {
-  final StreamController<MouseEventApi> _onMouseDownController =
-      StreamController<MouseEventApi>.broadcast();
-  final StreamController<MouseEventApi> _onMouseMoveController =
-      StreamController<MouseEventApi>.broadcast();
-  final StreamController<MouseEventApi> _onMouseUpController =
-      StreamController<MouseEventApi>.broadcast();
-  final StreamController<EventApi> _onKeyDownController =
-      StreamController<EventApi>.broadcast();
-  final StreamController<EventApi> _onKeyUpController =
-      StreamController<EventApi>.broadcast();
-  final StreamController<MouseEventApi> _onClickController =
-      StreamController<MouseEventApi>.broadcast();
-  final StreamController<MouseEventApi> _onDoubleClickController =
-      StreamController<MouseEventApi>.broadcast();
+class MockDivElementApi extends MockElementApi implements DivElementApi {
+  final StreamController<MouseEventApi> _onMouseDownController = StreamController<MouseEventApi>.broadcast();
+  final StreamController<MouseEventApi> _onMouseMoveController = StreamController<MouseEventApi>.broadcast();
+  final StreamController<MouseEventApi> _onMouseUpController = StreamController<MouseEventApi>.broadcast();
+  final StreamController<EventApi> _onKeyDownController = StreamController<EventApi>.broadcast();
+  final StreamController<EventApi> _onKeyUpController = StreamController<EventApi>.broadcast();
+  final StreamController<MouseEventApi> _onClickController = StreamController<MouseEventApi>.broadcast();
+  final StreamController<MouseEventApi> _onDoubleClickController = StreamController<MouseEventApi>.broadcast();
 
   @override
   Stream<MouseEventApi> get onMouseDown => _onMouseDownController.stream;
@@ -104,32 +107,34 @@ class MockDivElementApi implements DivElementApi {
   Stream<MouseEventApi> get onClick => _onClickController.stream;
   @override
   Stream<MouseEventApi> get onDoubleClick => _onDoubleClickController.stream;
-
   @override
   String contentEditable = 'false';
-
+  @override
+  String innerText = '';
+  @override
+  void select() {}
   @override
   void focus() {}
-
-  @override
-  final CssStyleDeclarationApi style = MockCssStyleDeclarationApi();
-
   @override
   void append(NodeApi node) {}
-
   @override
   int? tabIndex;
 
-  // Métodos para controlar os eventos nos testes
-  void triggerMouseDown(MouseEventApi event) =>
-      _onMouseDownController.add(event);
-  void triggerMouseMove(MouseEventApi event) =>
-      _onMouseMoveController.add(event);
+  void triggerMouseDown(MouseEventApi event) => _onMouseDownController.add(event);
+  void triggerMouseMove(MouseEventApi event) => _onMouseMoveController.add(event);
   void triggerMouseUp(MouseEventApi event) => _onMouseUpController.add(event);
   void triggerKeyDown(EventApi event) => _onKeyDownController.add(event);
-  void triggerDoubleClick(MouseEventApi event) =>
-      _onDoubleClickController.add(event);
+  void triggerDoubleClick(MouseEventApi event) => _onDoubleClickController.add(event);
 }
+
+// CORREÇÃO: Adicionada implementação do mock para TextArea.
+class MockTextAreaElementApi extends MockElementApi implements TextAreaElementApi {
+    @override
+    String value = '';
+    @override
+    void select() {}
+}
+
 
 class MockCssStyleDeclarationApi implements CssStyleDeclarationApi {
   @override
@@ -146,12 +151,12 @@ class MockCssStyleDeclarationApi implements CssStyleDeclarationApi {
   String opacity = '';
   @override
   String zIndex = '';
-
   @override
   void setProperty(String name, String value) {}
+  // CORREÇÃO: Implementação do novo membro `pointerEvents`.
+  @override
+  set pointerEvents(String value) {}
 }
-
-// --- MOCKS DE API DO NAVEGADOR ---
 
 class MockWindowApi implements WindowApi {
   @override
@@ -160,12 +165,12 @@ class MockWindowApi implements WindowApi {
   double get scrollX => 0.0;
   @override
   double get scrollY => 0.0;
-
+  @override
+  final NavigatorApi navigator = MockNavigatorApi();
   @override
   void requestAnimationFrame(void Function(num highResTime) callback) {
     Future.microtask(() => callback(0));
   }
-
   @override
   Stream<EventApi> get onResize => Stream<EventApi>.empty();
   @override
@@ -175,14 +180,22 @@ class MockWindowApi implements WindowApi {
 class MockDocumentApi implements DocumentApi {
   @override
   final BodyElementApi? body = MockBodyElementApi();
+  @override
+  bool execCommand(String commandId) => true;
+  // CORREÇÃO: Implementação do novo método `createElement`.
+  @override
+  ElementApi createElement(String tagName) {
+    if (tagName.toLowerCase() == 'textarea') {
+      return MockTextAreaElementApi();
+    }
+    return MockDivElementApi();
+  }
 }
 
 class MockBodyElementApi implements BodyElementApi {
   @override
   void append(NodeApi node) {}
 }
-
-// --- MOCKS DE GEOMETRIA E EVENTOS ---
 
 class MockRectangleApi implements RectangleApi {
   @override
@@ -204,13 +217,7 @@ class MockEventApi implements EventApi {
   final bool ctrlKey;
   @override
   final bool metaKey;
-
-  MockEventApi(
-      {this.key = '',
-      this.shiftKey = false,
-      this.ctrlKey = false,
-      this.metaKey = false});
-
+  MockEventApi({this.key = '', this.shiftKey = false, this.ctrlKey = false, this.metaKey = false});
   @override
   void preventDefault() {}
 }
@@ -218,8 +225,6 @@ class MockEventApi implements EventApi {
 class MockMouseEventApi implements MouseEventApi {
   @override
   final PointApi client;
-
-  // Implementando propriedades de EventApi
   @override
   final String key;
   @override
@@ -228,15 +233,11 @@ class MockMouseEventApi implements MouseEventApi {
   final bool ctrlKey;
   @override
   final bool metaKey;
+  @override
+  final int button; 
 
-  MockMouseEventApi({
-    required int clientX,
-    required int clientY,
-    this.key = '',
-    this.shiftKey = false,
-    this.ctrlKey = false,
-    this.metaKey = false,
-  }) : client = MockPointApi(clientX, clientY);
+  MockMouseEventApi({required int clientX, required int clientY, this.key = '', this.shiftKey = false, this.ctrlKey = false, this.metaKey = false, this.button = 0}) 
+      : client = MockPointApi(clientX, clientY);
 
   @override
   void preventDefault() {}
@@ -247,60 +248,5 @@ class MockPointApi implements PointApi {
   final int x;
   @override
   final int y;
-
   MockPointApi(this.x, this.y);
-}
-
-class MockCanvasRenderingContext2D implements CanvasRenderingContext2DApi {
-  @override
-  void scale(num x, num y) {}
-  @override
-  void clearRect(num x, num y, num w, num h) {}
-  @override
-  void fillText(String text, num x, num y) {}
-  @override
-  void fillRect(num x, num y, num w, num h) {}
-  @override
-  void beginPath() {}
-  @override
-  void rect(num x, num y, num w, num h) {}
-  @override
-  void clip() {}
-  @override
-  void save() {}
-  @override
-  void restore() {}
-  @override
-  set font(String value) {}
-  @override
-  set fillStyle(Object value) {}
-  @override
-  set strokeStyle(Object value) {}
-  @override
-  set lineWidth(num value) {}
-  @override
-  void moveTo(num x, num y) {}
-  @override
-  void lineTo(num x, num y) {}
-  @override
-  void stroke() {}
-  @override
-  set textBaseline(String value) {}
-  @override
-  void translate(num x, num y) {}
-  @override
-  void strokeRect(num x, num y, num w, num h) {}
-  @override
-  double measureTextWidth(String text) => text.length * 8.0; // Mock measurement
-}
-
-class MockRectangle implements RectangleApi {
-  @override
-  double get left => 0;
-  @override
-  double get top => 0;
-  @override
-  double get width => 800;
-  @override
-  double get height => 600;
 }

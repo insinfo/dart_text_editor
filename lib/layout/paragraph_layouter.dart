@@ -47,15 +47,6 @@ class ParagraphLayouter {
       currentLineWidth += width;
     }
 
-    void pushHiddenSpan(String text, TextRun run, int startInNode) {
-      if (text.isEmpty) return;
-      currentLineSpans.add(LayoutSpan.hidden(
-        run.copyWith(text: text),
-        startInNode,
-        startInNode + text.length,
-      ));
-    }
-
     final tokenRegex = RegExp(r'(\s+|\S+)');
 
     for (final run in node.runs) {
@@ -71,31 +62,20 @@ class ParagraphLayouter {
       for (final match in matches) {
         final token = match.group(0)!;
         final tokenWidth = measureCache.measure(token, run.attributes).width;
-        final isSpace = token.trim().isEmpty;
+
         final startOffsetInNode = cursorInNode + posInRun;
 
-        
-        // 1. Se o token não cabe na linha atual (e a linha não está vazia), quebra.
-        // if (currentLineWidth > 0 &&
-        //     currentLineWidth + tokenWidth > constraints.width &&
-        //     !isSpace) {
-        //   breakLineNow();
-        // }
-        // LÓGICA DE QUEBRA CORRIGIDA
-        // 1. Se o token não cabe na linha atual (e a linha não está vazia), quebra.
         if (currentLineWidth > 0 &&
             currentLineWidth + tokenWidth > constraints.width) {
           breakLineNow();
         }
 
-        // 2. Lida com palavras que são maiores que a própria linha
-        if (tokenWidth > constraints.width && !isSpace) {
+        if (tokenWidth > constraints.width && token.trim().isNotEmpty) {
           var startInToken = 0;
           while (startInToken < token.length) {
             var endInToken = startInToken;
             var lastFitEnd = startInToken;
             var fragmentWidth = 0.0;
-            // Encontra o maior fragmento que cabe na linha
             while (endInToken < token.length) {
               final nextChar = token.substring(endInToken, endInToken + 1);
               final nextCharWidth =
@@ -111,7 +91,7 @@ class ParagraphLayouter {
 
             if (lastFitEnd == startInToken) {
               if (currentLineWidth > 0) breakLineNow();
-              lastFitEnd = startInToken + 1; // Força pelo menos 1 char
+              lastFitEnd = startInToken + 1;
             }
 
             final fragment = token.substring(startInToken, lastFitEnd);
@@ -126,12 +106,7 @@ class ParagraphLayouter {
             }
           }
         } else {
-          // 3. Adiciona o token à linha (nova ou atual)
-          if (isSpace && currentLineWidth == 0) {
-            pushHiddenSpan(token, run, startOffsetInNode);
-          } else {
-            pushSpan(token, run, startOffsetInNode, tokenWidth);
-          }
+          pushSpan(token, run, startOffsetInNode, tokenWidth);
         }
         posInRun += token.length;
       }
@@ -185,51 +160,151 @@ class ParagraphLayouter {
   }
 
   int getIndexFromXY(ParagraphLayoutResult layoutResult, double x, double y) {
-    if (layoutResult.lines.isEmpty) return 0;
+    // Log da entrada da função
+    print('[getIndexFromXY] Input: x=$x, y=$y');
 
-    var yOffset = 0.0;
-    var lineIndex = -1;
+    if (layoutResult.lines.isEmpty) {
+      print('[getIndexFromXY] No lines in layoutResult, returning 0');
+      return 0;
+    }
+
+    // ===== DEBUG DETALHADO DA VERIFICAÇÃO VERTICAL =====
+    print(
+        '[getIndexFromXY] --- Checking ${layoutResult.lines.length} Lines Vertically ---');
+    var cumulativeY = 0.0; // Acumula a posição Y superior de cada linha
+    bool lineFound = false;
+    int targetLineIndex = -1;
+
     for (var i = 0; i < layoutResult.lines.length; i++) {
-      final h = layoutResult.lines[i].height;
-      if (y >= yOffset && y < yOffset + h) {
-        lineIndex = i;
-        break;
+      final line = layoutResult.lines[i];
+      final lineTop = cumulativeY;
+      final lineHeight = line.height; // Use a altura calculada da linha
+      final lineBottom = lineTop + lineHeight;
+      final lineTextPreview = line.spans
+          .map((s) => s.run.text)
+          .join(); // Texto completo da linha para clareza
+
+      // A verificação crucial: o Y de entrada está DENTRO dos limites verticais desta linha?
+      bool yIsInLineBounds = (y >= lineTop && y < lineBottom);
+
+      print(
+          '[getIndexFromXY]   Line $i: yRange=[$lineTop..$lineBottom), height=$lineHeight | InputY=$y | InBounds=$yIsInLineBounds | Text="${lineTextPreview.substring(0, lineTextPreview.length.clamp(0, 40))}..."');
+
+      if (yIsInLineBounds) {
+        print('[getIndexFromXY]   ✓ Found Target Line: $i');
+        targetLineIndex = i;
+        lineFound = true;
+        break; // Encontrou a linha correta verticalmente, pode parar de procurar
       }
-      yOffset += h;
+
+      cumulativeY = lineBottom; // Prepara o topo da próxima linha
+    }
+    print('[getIndexFromXY] --- End Vertical Check ---');
+    // ===== FIM DO DEBUG VERTICAL =====
+
+    // Se NENHUMA linha foi encontrada verticalmente (clique abaixo de todo o conteúdo)
+    if (!lineFound) {
+      print(
+          '[getIndexFromXY] InputY=$y is below all line ranges (last bottom was $cumulativeY).');
+      // Retorna o final do último caractere da última linha, se houver
+      if (layoutResult.lines.isNotEmpty &&
+          layoutResult.lines.last.spans.isNotEmpty) {
+        final lastOffset = layoutResult.lines.last.spans.last.endInNode;
+        print('[getIndexFromXY]   -> Returning end of last span: $lastOffset');
+        return lastOffset;
+      } else {
+        print(
+            '[getIndexFromXY]   -> Layout has no lines or last line is empty, returning 0');
+        return 0; // Documento vazio ou linha vazia
+      }
     }
 
-    if (lineIndex == -1) {
-      return layoutResult.lines.last.spans.last.endInNode;
+    // Se encontrou a linha (targetLineIndex é válido), prossiga com a busca horizontal NESSA linha
+    final targetLine = layoutResult.lines[targetLineIndex];
+    print(
+        '[getIndexFromXY] --- Checking Spans Horizontally on Line $targetLineIndex ---');
+
+    // Caso de linha vazia (sem spans)
+    if (targetLine.spans.isEmpty) {
+      print(
+          '[getIndexFromXY]   Target line $targetLineIndex is empty. Returning offset 0 for this line.');
+      // O offset absoluto seria o offset inicial do primeiro span da *próxima* linha,
+      // ou o final do último span da linha *anterior*. Para simplificar, retornamos 0 *dentro* da linha vazia.
+      // A lógica de `Position` e `offset` precisa ser consistente. Se uma linha vazia tem length 0,
+      // o único offset válido nela é 0. O offset absoluto dependeria do conteúdo anterior.
+      // Vamos retornar o offset inicial que *teria* sido o desta linha vazia.
+      int startingOffsetForEmptyLine = 0;
+      if (targetLineIndex > 0 &&
+          layoutResult.lines[targetLineIndex - 1].spans.isNotEmpty) {
+        startingOffsetForEmptyLine =
+            layoutResult.lines[targetLineIndex - 1].spans.last.endInNode;
+      }
+      print(
+          '[getIndexFromXY]   -> Returning start offset for empty line: $startingOffsetForEmptyLine');
+      return startingOffsetForEmptyLine; // Retorna o offset onde a linha vazia começa
     }
 
-    final line = layoutResult.lines[lineIndex];
-    if (line.spans.isEmpty) {
-      return lineIndex > 0
-          ? layoutResult.lines[lineIndex - 1].spans.last.endInNode
-          : 0;
-    }
+    var absoluteOffset =
+        targetLine.spans.first.startInNode; // Offset inicial da linha
+    var xCursor = 0.0; // Posição X relativa ao início da linha
 
-    var absoluteOffset = line.spans.first.startInNode;
-    var xCursor = 0.0;
-
-    for (final span in line.spans) {
+    for (final span in targetLine.spans) {
       if (span.hidden) {
-        absoluteOffset += span.run.text.length;
+        // Pula spans escondidos, mas atualiza o offset absoluto
+        absoluteOffset += (span.endInNode - span.startInNode);
         continue;
       }
 
       final run = span.run;
-      for (var i = 0; i < run.text.length; i++) {
-        final ch = run.text[i];
-        final w = measureCache.measure(ch, run.attributes).width;
-        if (x < xCursor + w / 2) {
-          return absoluteOffset;
-        }
-        xCursor += w;
-        absoluteOffset++;
-      }
-    }
+      final metrics = measureCache.measure(run.text, run.attributes);
+      final runWidth = metrics.width;
+      final spanTextPreview =
+          run.text.substring(0, run.text.length.clamp(0, 10));
 
-    return line.spans.last.endInNode;
+      print(
+          '[getIndexFromXY]   Span: xRange=[$xCursor..${xCursor + runWidth}), InputX=$x | StartOffset=${span.startInNode} | Text="$spanTextPreview..."');
+
+      // Verifica se X está DENTRO deste span
+      if (x >= xCursor && x < xCursor + runWidth) {
+        // Estima o caractere dentro do span
+        // Evita divisão por zero
+        final charWidth =
+            run.text.isNotEmpty ? runWidth / run.text.length : 1.0;
+        // Calcula quantos caracteres "caberiam" até a posição X dentro deste span
+        final charsIntoSpan =
+            charWidth > 0 ? ((x - xCursor) / charWidth).round() : 0;
+        // Garante que não exceda o tamanho do span
+        final clampedChars = charsIntoSpan.clamp(0, run.text.length);
+
+        absoluteOffset =
+            span.startInNode + clampedChars; // Calcula o offset absoluto final
+
+        print(
+            '[getIndexFromXY]   ✓ Found Target Span! CharsInto=$clampedChars -> Absolute Offset=$absoluteOffset');
+        print('[getIndexFromXY] --- End Horizontal Check ---');
+        return absoluteOffset;
+      }
+      // Se o X é menor que o início do span atual, significa que o clique foi mais próximo
+      // do final do span ANTERIOR ou do início DESTE span. Retornar o início deste span é o comportamento mais comum.
+      else if (x < xCursor) {
+        absoluteOffset = span.startInNode;
+        print(
+            '[getIndexFromXY]   InputX is before this span. Returning start of this span: $absoluteOffset');
+        print('[getIndexFromXY] --- End Horizontal Check ---');
+        return absoluteOffset;
+      }
+
+      // Move o cursor X para o final deste span para verificar o próximo
+      xCursor += runWidth;
+      // Atualiza o offset absoluto para o início do *próximo* span (ou final da linha)
+      absoluteOffset = span.endInNode;
+    } // Fim do loop de spans
+
+    // Se o loop terminou, significa que X estava além do final de todos os spans na linha
+    // O valor de 'absoluteOffset' já estará no final do último span
+    print(
+        '[getIndexFromXY]   InputX=$x is beyond all spans (last xCursor was $xCursor). Returning end of line offset: $absoluteOffset');
+    print('[getIndexFromXY] --- End Horizontal Check ---');
+    return absoluteOffset;
   }
 }

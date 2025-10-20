@@ -9,6 +9,7 @@ import 'package:dart_text_editor/core/selection.dart';
 import 'package:dart_text_editor/core/text_run.dart';
 import 'package:dart_text_editor/editor.dart';
 import 'package:dart_text_editor/layout/page_constraints.dart';
+import 'package:dart_text_editor/layout/paragraph_layouter.dart';
 import 'package:dart_text_editor/render/measure_cache.dart';
 import 'package:test/test.dart';
 import '../mocks/manual_dom_api_mocks.dart';
@@ -110,12 +111,12 @@ void main() {
     });
 
     test('Double click selects a word', () async {
-      // Simula um clique para posicionar o cursor no meio da palavra "one"
-      editor.state = editor.state
-          .copyWith(selection: Selection.collapsed(const Position(0, 6)));
-
-      overlay.triggerDoubleClick(MockMouseEventApi(clientX: 0, clientY: 0));
+      // --- INÍCIO DA CORREÇÃO ---
+      // Simula um duplo clique no meio da palavra "one" (offset 6)
+      // clientX = margem_padrão (57) + (offset * largura_char_mock) = 57 + (6 * 8) = 105
+      overlay.triggerDoubleClick(MockMouseEventApi(clientX: 105, clientY: 70));
       await Future.microtask(() {});
+      // --- FIM DA CORREÇÃO ---
 
       expect(editor.state.selection.isCollapsed, isFalse);
       expect(editor.state.selection.start, const Position(0, 5));
@@ -160,5 +161,69 @@ void main() {
       expect(lines[1].spans.first.run.text, "word2",
           reason: "The first span of the second line should be 'word2'.");
     });
+
+    test('Double click on a word selects only that word', () async {
+      // --- INÍCIO DA CORREÇÃO ---
+      // O texto é 'Line one is here.'. Selecionaremos "Line".
+      // clientX = margem + (offset * largura_char) = 57 + (2 * 8) = 73
+      overlay.triggerDoubleClick(MockMouseEventApi(clientX: 73, clientY: 70));
+      await Future.microtask(() {});
+
+      expect(editor.state.selection.isCollapsed, isFalse);
+      expect(editor.state.selection.start,
+          const Position(0, 0)); // "Line" começa no offset 0
+      expect(editor.state.selection.end,
+          const Position(0, 4)); // "Line" termina no offset 4
+      // --- FIM DA CORREÇÃO ---
+    });
+
+    test(
+        'SHIFT + Right Arrow, then Right Arrow without SHIFT, then SHIFT + Left Arrow',
+        () async {
+      // 1. Posição inicial
+      editor.state = editor.state
+          .copyWith(selection: Selection.collapsed(const Position(0, 5)));
+
+      // 2. SHIFT + Direita
+      overlay.triggerKeyDown(MockEventApi(key: 'ArrowRight', shiftKey: true));
+      await Future.microtask(() {});
+      expect(editor.state.selection,
+          Selection(const Position(0, 5), const Position(0, 6)));
+
+      // 3. Direita (sem SHIFT) -> Colapsa a seleção
+      overlay.triggerKeyDown(MockEventApi(key: 'ArrowRight', shiftKey: false));
+      await Future.microtask(() {});
+      expect(editor.state.selection.isCollapsed, isTrue);
+      expect(editor.state.selection.start,
+          const Position(0, 6)); // Colapsa no final
+
+      // 4. Inicia nova seleção com SHIFT + Esquerda
+      overlay.triggerKeyDown(MockEventApi(key: 'ArrowLeft', shiftKey: true));
+      await Future.microtask(() {});
+      expect(editor.state.selection,
+          Selection(const Position(0, 5), const Position(0, 6)));
+    });
+
+    test('space at the beginning of a wrapped line is visible', () {
+      // 10 chars de 10px cada cabem perfeitamente
+      final text = 'Line with nine chars.'; // 21 chars
+      final node = ParagraphNode([TextRun(0, text, InlineAttributes())]);
+      // Largura para 20 caracteres
+      final constraints = PageConstraints(width: 200, height: 100);
+
+      // Mock com charWidth de 10 para facilitar
+      final layouter =
+          ParagraphLayouter(MeasureCache(MockTextMeasurer(charWidth: 10)));
+      final result = layouter.layout(node, constraints);
+
+      // Deve quebrar após 'nine '
+      expect(result.lines.length, 2);
+
+      // A segunda linha deve começar com 'chars.'
+      final secondLineFirstSpan = result.lines[1].spans.first;
+      expect(secondLineFirstSpan.hidden, isFalse);
+    });
+
+    //end
   });
 }

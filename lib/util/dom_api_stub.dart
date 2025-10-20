@@ -1,14 +1,23 @@
-//C:\MyDartProjects\canvas_text_editor\lib\util\dom_api_stub.dart
-// Lightweight non-web stub implementations for testing on the Dart VM.
-// Arquivo: lib/util/dom_api_stub.dart (COMPLETO E CORRIGIDO)
+// Arquivo: C:\MyDartProjects\canvas_text_editor\lib\util\dom_api_stub.dart
 import 'dart:async';
+import 'package:dart_text_editor/util/dom_api.dart';
 
-import 'dom_api.dart';
+class _StubClipboardApi implements ClipboardApi {
+  String _clipboardContent = '';
+  @override
+  Future<String?> readText() async => _clipboardContent;
+  @override
+  Future<void> writeText(String text) async => _clipboardContent = text;
+}
+
+class _StubNavigatorApi implements NavigatorApi {
+  @override
+  final ClipboardApi clipboard = _StubClipboardApi();
+}
 
 class _StubCanvasRenderingContext2D implements CanvasRenderingContext2DApi {
   @override
   double measureTextWidth(String text) => text.length.toDouble() * 8.0;
-
   @override
   void beginPath() {}
   @override
@@ -49,7 +58,15 @@ class _StubCanvasRenderingContext2D implements CanvasRenderingContext2DApi {
   void rect(num x, num y, num w, num h) {}
 }
 
-class _StubCanvasElementApi implements CanvasElementApi {
+// CORREÇÃO: Implementação dos novos membros da interface ElementApi.
+abstract class _StubElementApi implements ElementApi {
+  @override
+  final CssStyleDeclarationApi style = _StubCssStyleDeclarationApi();
+  @override
+  void remove() {}
+}
+
+class _StubCanvasElementApi extends _StubElementApi implements CanvasElementApi {
   @override
   int width = 800;
   @override
@@ -61,7 +78,6 @@ class _StubCanvasElementApi implements CanvasElementApi {
   RectangleApi getBoundingClientRect() => _StubRectangleApi();
   @override
   Stream<MouseEventApi> get onClick => const Stream.empty();
-
   @override
   Stream<MouseEventApi> get onDoubleClick => const Stream.empty();
 }
@@ -77,10 +93,7 @@ class _StubRectangleApi implements RectangleApi {
   double get width => 800.0;
 }
 
-class _StubDivElementApi implements DivElementApi {
-  final _style = _StubCssStyleDeclarationApi();
-  @override
-  CssStyleDeclarationApi get style => _style;
+class _StubDivElementApi extends _StubElementApi implements DivElementApi {
   @override
   set contentEditable(String value) {}
   @override
@@ -99,12 +112,22 @@ class _StubDivElementApi implements DivElementApi {
   Stream<MouseEventApi> get onMouseUp => const Stream.empty();
   @override
   Stream<MouseEventApi> get onClick => const Stream.empty();
-
   @override
   Stream<MouseEventApi> get onDoubleClick => const Stream.empty();
-
   @override
   int? tabIndex;
+  @override
+  String innerText = '';
+  @override
+  void select() {}
+}
+
+// CORREÇÃO: Implementação do novo membro `value`.
+class _StubTextAreaElementApi extends _StubElementApi implements TextAreaElementApi {
+  @override
+  String value = '';
+  @override
+  void select() {}
 }
 
 class _StubCssStyleDeclarationApi implements CssStyleDeclarationApi {
@@ -122,11 +145,11 @@ class _StubCssStyleDeclarationApi implements CssStyleDeclarationApi {
   set width(String value) {}
   @override
   set zIndex(String value) {}
-
   @override
-  void setProperty(String name, String value) {
-    // TODO: implement setProperty
-  }
+  void setProperty(String name, String value) {}
+  // CORREÇÃO: Implementação do novo membro `pointerEvents`.
+  @override
+  set pointerEvents(String value) {}
 }
 
 class _StubWindowApi implements WindowApi {
@@ -137,10 +160,9 @@ class _StubWindowApi implements WindowApi {
   @override
   double get scrollY => 0.0;
   @override
-  void requestAnimationFrame(void Function(num highResTime) callback) {
-    callback(0);
-  }
-
+  final NavigatorApi navigator = _StubNavigatorApi();
+  @override
+  void requestAnimationFrame(void Function(num highResTime) callback) => callback(0);
   @override
   Stream<EventApi> get onResize => const Stream.empty();
   @override
@@ -150,7 +172,17 @@ class _StubWindowApi implements WindowApi {
 class _StubDocumentApi implements DocumentApi {
   final _body = _StubBodyElementApi();
   @override
-  BodyElementApi? get body => _body;
+  BodyElementApi? get body => _body; 
+  @override
+  bool execCommand(String commandId) => true;
+  // CORREÇÃO: Implementação do novo método `createElement`.
+  @override
+  ElementApi createElement(String tagName) {
+    if (tagName == 'textarea') {
+      return _StubTextAreaElementApi();
+    }
+    return _StubDivElementApi(); // Retorna um Div como fallback.
+  }
 }
 
 class _StubBodyElementApi implements BodyElementApi {
@@ -158,9 +190,7 @@ class _StubBodyElementApi implements BodyElementApi {
   void append(NodeApi node) {}
 }
 
-// Factory functions used by editor when running on non-web platforms
-CanvasElementApi createCanvasElement({dynamic canvas}) =>
-    _StubCanvasElementApi();
+CanvasElementApi createCanvasElement({dynamic canvas}) => _StubCanvasElementApi();
 DivElementApi createDivElement() => _StubDivElementApi();
 WindowApi createWindow() => _StubWindowApi();
 DocumentApi createDocument() => _StubDocumentApi();

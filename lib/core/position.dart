@@ -4,13 +4,12 @@ class Position {
 
   const Position(this.node, this.offset);
 
-  // Add the less than operator
-  bool operator <(Position other) {
-    if (node != other.node) {
-      return node < other.node;
-    }
-    return offset < other.offset;
-  }
+  bool operator <(Position other) =>
+      node < other.node || (node == other.node && offset < other.offset);
+  bool operator <=(Position other) => this < other || this == other;
+
+  @override
+  String toString() => 'Pos(node: $node, offset: $offset)';
 
   @override
   bool operator ==(Object other) =>

@@ -45,6 +45,10 @@ class MoveCaretCommand implements EditorCommand {
           collapsePos =
               sel.end; // colapsa à direita (right/wordRight/lineEnd/etc.)
       }
+      // --- INÍCIO DA CORREÇÃO ---
+      // Limpa a âncora do teclado para que a próxima seleção com SHIFT comece do zero.
+      paginator.keyboardAnchor = null;
+      // --- FIM DA CORREÇÃO ---
       return Transaction.compat(
         Transaction.emptyDelta,
         sel,
